@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <PackageReference Include="MassTransit" />
+    <PackageReference Include="MassTransit.RabbitMQ" />
+    <PackageReference Include="Hangfire.Core" />
+    <PackageReference Include="Hangfire.SqlServer" />
+    <PackageReference Include="Hangfire.AspNetCore" />
+    <PackageReference Include="Microsoft.Data.SqlClient" />
+    <ProjectReference Include="../Notifications.Application/EWallet.Modules.Notifications.Application.csproj" />
+    <ProjectReference Include="../../Wallets/Wallets.Application/EWallet.Modules.Wallets.Application.csproj" />
+    <ProjectReference Include="../../../BuildingBlocks/EWallet.BuildingBlocks.csproj" />
+  </ItemGroup>
+</Project>

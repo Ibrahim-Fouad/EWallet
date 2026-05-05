@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <ProjectReference Include="../Notifications.Application/EWallet.Modules.Notifications.Application.csproj" />
+    <ProjectReference Include="../Notifications.Infrastructure/EWallet.Modules.Notifications.Infrastructure.csproj" />
+  </ItemGroup>
+</Project>

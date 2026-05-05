@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="MassTransit" />
+    <PackageReference Include="MassTransit.RabbitMQ" />
+    <PackageReference Include="MassTransit.EntityFrameworkCore" />
+    <PackageReference Include="StackExchange.Redis" />
+    <ProjectReference Include="../Transactions.Application/EWallet.Modules.Transactions.Application.csproj" />
+    <ProjectReference Include="../../Wallets/Wallets.Infrastructure/EWallet.Modules.Wallets.Infrastructure.csproj" />
+    <ProjectReference Include="../../../BuildingBlocks/EWallet.BuildingBlocks.csproj" />
+  </ItemGroup>
+</Project>

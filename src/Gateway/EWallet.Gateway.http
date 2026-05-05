@@ -1,0 +1,6 @@
+@EWallet.Gateway_HostAddress = http://localhost:5267
+
+GET {{EWallet.Gateway_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

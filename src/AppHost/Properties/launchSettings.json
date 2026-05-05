@@ -1,0 +1,18 @@
+﻿{
+  "$schema": "http://json.schemastore.org/launchsettings.json",
+  "profiles": {
+    "EWallet.AppHost": {
+      "commandName": "Project",
+      "dotnetRunMessages": true,
+      "launchBrowser": true,
+      "applicationUrl": "https://localhost:15079",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "DOTNET_ENVIRONMENT": "Development",
+        "ASPIRE_DASHBOARD_OTLP_ENDPOINT_URL": "https://localhost:19282",
+        "ASPIRE_DASHBOARD_MCP_ENDPOINT_URL": "https://localhost:18215",
+        "ASPIRE_RESOURCE_SERVICE_ENDPOINT_URL": "https://localhost:20018"
+      }
+    }
+  }
+}

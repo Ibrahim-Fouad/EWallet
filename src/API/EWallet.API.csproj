@@ -1,0 +1,55 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <UserSecretsId>ewallet-api</UserSecretsId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Asp.Versioning.Http" />
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Tools">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="Microsoft.OpenApi" />
+    <PackageReference Include="Microsoft.VisualStudio.Web.CodeGeneration.Design" />
+    <PackageReference Include="Scalar.AspNetCore" />
+    <PackageReference Include="MassTransit" />
+    <PackageReference Include="MassTransit.RabbitMQ" />
+    <PackageReference Include="MassTransit.EntityFrameworkCore" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="Serilog.AspNetCore" />
+    <PackageReference Include="Serilog.Sinks.Console" />
+    <PackageReference Include="Serilog.Enrichers.CorrelationId" />
+    <PackageReference Include="Serilog.Sinks.OpenTelemetry" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ServiceDefaults\EWallet.ServiceDefaults.csproj" />
+    <ProjectReference Include="..\BuildingBlocks\EWallet.BuildingBlocks.csproj" />
+    <ProjectReference Include="..\Modules\Identity\Identity.Infrastructure\EWallet.Modules.Identity.Infrastructure.csproj" />
+    <ProjectReference Include="..\Modules\Identity\Identity.API\EWallet.Modules.Identity.API.csproj" />
+    <ProjectReference Include="..\Modules\Wallets\Wallets.Infrastructure\EWallet.Modules.Wallets.Infrastructure.csproj" />
+    <ProjectReference Include="..\Modules\Wallets\Wallets.API\EWallet.Modules.Wallets.API.csproj" />
+    <ProjectReference Include="..\Modules\Transactions\Transactions.Infrastructure\EWallet.Modules.Transactions.Infrastructure.csproj" />
+    <ProjectReference Include="..\Modules\Transactions\Transactions.API\EWallet.Modules.Transactions.API.csproj" />
+    <ProjectReference Include="..\Modules\Notifications\Notifications.Infrastructure\EWallet.Modules.Notifications.Infrastructure.csproj" />
+    <ProjectReference Include="..\Modules\Notifications\Notifications.API\EWallet.Modules.Notifications.API.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <_ContentIncludedByDefault Remove="Areas\Identity\Pages\Account\Login.cshtml" />
+    <_ContentIncludedByDefault Remove="Areas\Identity\Pages\Account\Register.cshtml" />
+    <_ContentIncludedByDefault Remove="Areas\Identity\Pages\Account\_ViewImports.cshtml" />
+    <_ContentIncludedByDefault Remove="Areas\Identity\Pages\Shared\_ValidationScriptsPartial.cshtml" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <AdditionalFiles Include="Pages\Account\Register.cshtml" />
+  </ItemGroup>
+
+</Project>

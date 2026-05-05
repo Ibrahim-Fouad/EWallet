@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="Moq" />
+    <PackageReference Include="FluentAssertions" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\BuildingBlocks\EWallet.BuildingBlocks.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Wallets\Wallets.Application\EWallet.Modules.Wallets.Application.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Transactions\Transactions.Application\EWallet.Modules.Transactions.Application.csproj" />
+  </ItemGroup>
+</Project>

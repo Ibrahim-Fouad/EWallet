@@ -1,0 +1,24 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dotnet build *)",
+      "Bash(dotnet list *)",
+      "Bash(dotnet script *)",
+      "Bash(powershell -Command ' $pkg = \\(nuget locals global-packages -list 2>&1 | Select-String '\\\\''global-packages'\\\\''\\).ToString\\(\\).Split\\('\\\\'':'\\\\'',2\\)[1].Trim\\(\\) $dir = Join-Path $pkg '\\\\''microsoft.openapi/2.0.0/lib'\\\\'' if \\(Test-Path $dir\\) { $dll = Get-ChildItem $dir -Recurse -Filter '\\\\''*.dll'\\\\'' | Select-Object -First 1 if \\($dll\\) { [System.Reflection.Assembly]::LoadFile\\($dll.FullName\\).GetTypes\\(\\) | Select-Object -ExpandProperty Namespace | Sort-Object -Unique } }')",
+      "Bash(powershell -Command ' *)",
+      "Bash(dotnet run *)",
+      "Bash(New-Item -ItemType Directory -Force -Path \"D:\\\\Personal\\\\E.Wallet\\\\src\\\\API\\\\Infrastructure\")",
+      "Bash(Out-Null)",
+      "PowerShell(New-Item -ItemType Directory -Force -Path \"D:\\\\Personal\\\\E.Wallet\\\\src\\\\API\\\\Infrastructure\")",
+      "Bash(Remove-Item \"D:\\\\Personal\\\\E.Wallet\\\\src\\\\Modules\\\\Identity\\\\Identity.Application\\\\Commands\\\\Register\\\\RegisterUserCommand.cs\" -Force)",
+      "Bash(Remove-Item \"D:\\\\Personal\\\\E.Wallet\\\\src\\\\Modules\\\\Identity\\\\Identity.Application\\\\Commands\\\\Register\\\\RegisterUserCommandValidator.cs\" -Force)",
+      "Bash(Remove-Item \"D:\\\\Personal\\\\E.Wallet\\\\src\\\\Modules\\\\Identity\\\\Identity.Application\\\\Commands\\\\Register\\\\RegisterUserCommandHandler.cs\" -Force)",
+      "Bash(Remove-Item \"D:\\\\Personal\\\\E.Wallet\\\\src\\\\Modules\\\\Identity\\\\Identity.Application\\\\Abstractions\\\\IIdentityService.cs\" -Force)",
+      "Bash(Remove-Item \"D:\\\\Personal\\\\E.Wallet\\\\src\\\\Modules\\\\Identity\\\\Identity.Infrastructure\\\\Services\\\\IdentityService.cs\" -Force)",
+      "Bash(dotnet add *)",
+      "Bash(dotnet restore *)",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\([k for k in d.get\\('libraries',{}\\).keys\\(\\) if 'openiddict' in k.lower\\(\\)]\\)\")",
+      "Bash(dotnet ef *)"
+    ]
+  }
+}

@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <PackageReference Include="MediatR" />
+    <PackageReference Include="FluentValidation" />
+    <ProjectReference Include="../Wallets.Domain/EWallet.Modules.Wallets.Domain.csproj" />
+    <ProjectReference Include="../../../BuildingBlocks/EWallet.BuildingBlocks.csproj" />
+  </ItemGroup>
+</Project>

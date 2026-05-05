@@ -1,0 +1,75 @@
+<Solution>
+  <Folder Name="/src/" />
+  <Folder Name="/src/API/">
+    <Project Path="src/API/EWallet.API.csproj" />
+  </Folder>
+  <Folder Name="/src/AppHost/">
+    <Project Path="src/AppHost/EWallet.AppHost.csproj" />
+  </Folder>
+  <Folder Name="/src/BuildingBlocks/">
+    <Project Path="src/BuildingBlocks/EWallet.BuildingBlocks.csproj" />
+  </Folder>
+  <Folder Name="/src/Gateway/">
+    <Project Path="src/Gateway/EWallet.Gateway.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/" />
+  <Folder Name="/src/Modules/Identity/" />
+  <Folder Name="/src/Modules/Identity/Identity.API/">
+    <Project Path="src/Modules/Identity/Identity.API/EWallet.Modules.Identity.API.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Identity/Identity.Application/">
+    <Project Path="src/Modules/Identity/Identity.Application/EWallet.Modules.Identity.Application.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Identity/Identity.Domain/">
+    <Project Path="src/Modules/Identity/Identity.Domain/EWallet.Modules.Identity.Domain.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Identity/Identity.Infrastructure/">
+    <Project Path="src/Modules/Identity/Identity.Infrastructure/EWallet.Modules.Identity.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Notifications/" />
+  <Folder Name="/src/Modules/Notifications/Notifications.API/">
+    <Project Path="src/Modules/Notifications/Notifications.API/EWallet.Modules.Notifications.API.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Notifications/Notifications.Application/">
+    <Project Path="src/Modules/Notifications/Notifications.Application/EWallet.Modules.Notifications.Application.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Notifications/Notifications.Domain/">
+    <Project Path="src/Modules/Notifications/Notifications.Domain/EWallet.Modules.Notifications.Domain.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Notifications/Notifications.Infrastructure/">
+    <Project Path="src/Modules/Notifications/Notifications.Infrastructure/EWallet.Modules.Notifications.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Transactions/" />
+  <Folder Name="/src/Modules/Transactions/Transactions.API/">
+    <Project Path="src/Modules/Transactions/Transactions.API/EWallet.Modules.Transactions.API.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Transactions/Transactions.Application/">
+    <Project Path="src/Modules/Transactions/Transactions.Application/EWallet.Modules.Transactions.Application.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Transactions/Transactions.Domain/">
+    <Project Path="src/Modules/Transactions/Transactions.Domain/EWallet.Modules.Transactions.Domain.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Transactions/Transactions.Infrastructure/">
+    <Project Path="src/Modules/Transactions/Transactions.Infrastructure/EWallet.Modules.Transactions.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Wallets/" />
+  <Folder Name="/src/Modules/Wallets/Wallets.API/">
+    <Project Path="src/Modules/Wallets/Wallets.API/EWallet.Modules.Wallets.API.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Wallets/Wallets.Application/">
+    <Project Path="src/Modules/Wallets/Wallets.Application/EWallet.Modules.Wallets.Application.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Wallets/Wallets.Domain/">
+    <Project Path="src/Modules/Wallets/Wallets.Domain/EWallet.Modules.Wallets.Domain.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Wallets/Wallets.Infrastructure/">
+    <Project Path="src/Modules/Wallets/Wallets.Infrastructure/EWallet.Modules.Wallets.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/src/ServiceDefaults/">
+    <Project Path="src/ServiceDefaults/EWallet.ServiceDefaults.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/EWallet.Tests.Integration/EWallet.Tests.Integration.csproj" />
+    <Project Path="tests/EWallet.Tests.Unit/EWallet.Tests.Unit.csproj" />
+  </Folder>
+</Solution>
