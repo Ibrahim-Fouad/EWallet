@@ -1,5 +1,7 @@
 using EWallet.API.Extensions;
 using EWallet.API.Infrastructure;
+using EWallet.API.Middleware;
+using EWallet.BuildingBlocks.Application.Abstractions;
 using EWallet.Modules.Identity.API.Endpoints;
 using EWallet.Modules.Identity.Infrastructure;
 using EWallet.Modules.Notifications.API.Endpoints;
@@ -24,6 +26,11 @@ builder.Host.UseSerilog((ctx, loggerConfig) =>
 
 builder.AddServiceDefaults();
 
+builder.Services.AddScoped<ICorrelationIdAccessor, CorrelationIdAccessor>();
+builder.Services.AddTransient<CorrelationIdDelegatingHandler>();
+builder.Services.ConfigureHttpClientDefaults(http =>
+    http.AddHttpMessageHandler<CorrelationIdDelegatingHandler>());
+
 // ── Database migration service (must be first hosted service) ────────────────
 // IHostedLifecycleService.StartingAsync runs as a global phase BEFORE all
 // IHostedService.StartAsync calls, so migrations complete before OpenIddictWorker,
@@ -47,6 +54,7 @@ builder.Services.AddNotificationsModule(builder.Configuration);
 builder.Services.AddMassTransitWithRabbitMq(builder.Configuration);
 
 var app = builder.Build();
+app.UseMiddleware<CorrelationIdMiddleware>();
 app.UseSerilogRequestLogging();
 app.UseHttpsRedirection();
 app.UseStaticFiles();

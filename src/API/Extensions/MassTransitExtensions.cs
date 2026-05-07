@@ -1,3 +1,4 @@
+using EWallet.API.Infrastructure;
 using EWallet.BuildingBlocks.Application.Abstractions;
 using EWallet.Modules.Notifications.Infrastructure.Consumers;
 using EWallet.Modules.Transactions.Infrastructure.Consumers;
@@ -18,6 +19,10 @@ internal static class MassTransitExtensions
         this IServiceCollection services,
         IConfiguration configuration)
     {
+        services.AddScoped(typeof(CorrelationIdConsumeFilter<>));
+        services.AddScoped(typeof(CorrelationIdPublishFilter<>));
+        services.AddScoped(typeof(CorrelationIdSendFilter<>));
+
         services.AddMassTransit(x =>
         {
             x.SetKebabCaseEndpointNameFormatter();
@@ -58,6 +63,7 @@ internal static class MassTransitExtensions
             // MUST be registered BEFORE UsingRabbitMq / ConfigureEndpoints.
             x.AddConfigureEndpointsCallback((ctx, _, cfg) =>
             {
+                cfg.UseConsumeFilter(typeof(CorrelationIdConsumeFilter<>), ctx);
                 cfg.UseEntityFrameworkOutbox<TransactionsDbContext>(ctx);
             });
 
@@ -65,6 +71,9 @@ internal static class MassTransitExtensions
             x.UsingRabbitMq((ctx, cfg) =>
             {
                 cfg.Host(configuration.GetConnectionString("rabbitmq"));
+
+                cfg.UsePublishFilter(typeof(CorrelationIdPublishFilter<>), ctx);
+                cfg.UseSendFilter(typeof(CorrelationIdSendFilter<>), ctx);
 
                 // Global retry: 1 s → 5 s → 10 s before the message moves to the error queue.
                 cfg.UseMessageRetry(r => r.Intervals(

@@ -1,3 +1,5 @@
+using EWallet.Gateway.Middleware;
+
 var builder = WebApplication.CreateBuilder(args);
 
 builder.AddServiceDefaults();
@@ -8,6 +10,7 @@ builder.Services.AddReverseProxy()
 
 var app = builder.Build();
 
+app.UseMiddleware<CorrelationIdStampingMiddleware>();
 app.UseHttpsRedirection();
 app.MapDefaultEndpoints();
 app.MapReverseProxy();
