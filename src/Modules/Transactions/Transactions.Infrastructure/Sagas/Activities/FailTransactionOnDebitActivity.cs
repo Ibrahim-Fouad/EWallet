@@ -1,3 +1,4 @@
+using EWallet.Modules.Transactions.Application.Abstractions;
 using EWallet.Modules.Transactions.Domain.Repositories;
 using EWallet.Modules.Transactions.Infrastructure.Sagas;
 using MassTransit;
@@ -11,7 +12,9 @@ namespace EWallet.Modules.Transactions.Infrastructure.Sagas.Activities;
 /// FailureReason is read from context.Saga because .Then() copies
 /// context.Message.Reason into context.Saga.FailureReason before this activity runs.
 /// </summary>
-public sealed class FailTransactionOnDebitActivity(ITransactionRepository transactionRepository)
+public sealed class FailTransactionOnDebitActivity(
+    ITransactionRepository transactionRepository,
+    ITransactionUnitOfWork unitOfWork)
     : IStateMachineActivity<TransferSagaState>
 {
     public async Task Execute(
@@ -28,6 +31,8 @@ public sealed class FailTransactionOnDebitActivity(ITransactionRepository transa
             context.Saga.TransactionId, context.CancellationToken);
 
         transaction?.Fail(context.Saga.FailureReason);
+
+        await unitOfWork.SaveChangesAsync(context.CancellationToken);
 
         await next.Execute(context);
     }

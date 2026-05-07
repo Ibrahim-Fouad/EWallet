@@ -1,3 +1,4 @@
+using EWallet.Modules.Transactions.Application.Abstractions;
 using EWallet.Modules.Transactions.Domain.Repositories;
 using EWallet.Modules.Transactions.Infrastructure.Sagas;
 using MassTransit;
@@ -10,10 +11,10 @@ namespace EWallet.Modules.Transactions.Infrastructure.Sagas.Activities;
 ///
 /// MassTransit calls Execute&lt;T&gt; (generic) via OfInstanceType; the non-generic
 /// Execute is a no-op pass-through for contexts without a message payload.
-/// Both run inside the EF outbox pipeline so the Transaction entity change and
-/// the TransferCompletedEvent outbox record are committed atomically with the saga state.
 /// </summary>
-public sealed class CompleteTransactionActivity(ITransactionRepository transactionRepository)
+public sealed class CompleteTransactionActivity(
+    ITransactionRepository transactionRepository,
+    ITransactionUnitOfWork unitOfWork)
     : IStateMachineActivity<TransferSagaState>
 {
     public async Task Execute(
@@ -30,6 +31,8 @@ public sealed class CompleteTransactionActivity(ITransactionRepository transacti
             context.Saga.TransactionId, context.CancellationToken);
 
         transaction?.Complete();
+
+        await unitOfWork.SaveChangesAsync(context.CancellationToken);
 
         await next.Execute(context);
     }
