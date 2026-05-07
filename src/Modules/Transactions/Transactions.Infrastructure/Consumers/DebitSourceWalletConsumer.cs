@@ -1,5 +1,6 @@
 using EWallet.BuildingBlocks.Application.Abstractions;
 using EWallet.Modules.Transactions.Application.Sagas;
+using EWallet.Modules.Transactions.Domain.Repositories;
 using EWallet.Modules.Wallets.Domain.Repositories;
 using MassTransit;
 
@@ -8,16 +9,19 @@ namespace EWallet.Modules.Transactions.Infrastructure.Consumers;
 /// <summary>
 /// Processes DebitWalletCommand published by the saga (Debiting state).
 ///
-/// Reliability note: this consumer saves WalletsDbContext and then publishes the
-/// result event. Because these use two separate DbContexts (wallets vs. transactions),
-/// there is a narrow crash window between the wallet save and the result publish.
-/// MassTransit's at-least-once retry covers transient failures; for strict at-most-once
-/// semantics in production, add InboxState to WalletsDbContext and configure
-/// UseEntityFrameworkOutbox&lt;WalletsDbContext&gt;() on this receive endpoint.
+/// On failure, marks the Transaction as Failed and publishes DebitFailedEvent.
+/// Transaction.Fail() is committed atomically with the DebitFailedEvent outbox
+/// message by the EF outbox middleware's TransactionsDbContext.SaveChangesAsync().
+///
+/// On success, publishes WalletDebitedEvent. The wallet save (WalletsDbContext) and
+/// the event publish (TransactionsDbContext outbox) use two separate DbContexts;
+/// a narrow crash window exists between them — MassTransit at-least-once retry covers
+/// transient failures.
 /// </summary>
 public sealed class DebitSourceWalletConsumer(
     IWalletRepository walletRepository,
-    IUnitOfWork unitOfWork)
+    IUnitOfWork unitOfWork,
+    ITransactionRepository transactionRepository)
     : IConsumer<DebitWalletCommand>
 {
     public async Task Consume(ConsumeContext<DebitWalletCommand> context)
@@ -27,6 +31,10 @@ public sealed class DebitSourceWalletConsumer(
 
         if (wallet is null)
         {
+            var tx = await transactionRepository.GetByIdAsync(
+                context.Message.TransactionId, context.CancellationToken);
+            tx?.Fail("Source wallet not found.");
+
             await context.Publish(new DebitFailedEvent(
                 context.Message.CorrelationId,
                 context.Message.TransactionId,
@@ -37,6 +45,10 @@ public sealed class DebitSourceWalletConsumer(
         var result = wallet.Debit(context.Message.Amount);
         if (result.IsFailure)
         {
+            var tx = await transactionRepository.GetByIdAsync(
+                context.Message.TransactionId, context.CancellationToken);
+            tx?.Fail(result.Error.Description);
+
             await context.Publish(new DebitFailedEvent(
                 context.Message.CorrelationId,
                 context.Message.TransactionId,

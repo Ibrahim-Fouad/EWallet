@@ -1,6 +1,5 @@
 using EWallet.BuildingBlocks.Infrastructure.Contracts;
 using EWallet.Modules.Transactions.Application.Sagas;
-using EWallet.Modules.Transactions.Infrastructure.Sagas.Activities;
 using MassTransit;
 
 namespace EWallet.Modules.Transactions.Infrastructure.Sagas;
@@ -8,32 +7,34 @@ namespace EWallet.Modules.Transactions.Infrastructure.Sagas;
 /// <summary>
 /// Orchestrates the money transfer flow as a durable, compensating saga.
 ///
+/// Transaction.Status updates are performed by the consumers themselves,
+/// not by saga activities, so the status change and the result event are
+/// committed atomically via the EF outbox middleware in a single SaveChangesAsync.
+///
 /// State transitions:
 ///   Initial
-///     → [TransferRequested] → Debiting   : send DebitWalletCommand to source wallet consumer
+///     [TransferRequested] -> Debiting   : send DebitWalletCommand to source wallet consumer
 ///
 ///   Debiting
-///     → [WalletDebited]    → Crediting   : send CreditWalletCommand to destination wallet consumer
-///     → [DebitFailed]      → Failed      : mark Transaction.Failed (FailTransactionOnDebitActivity)
+///     [WalletDebited]    -> Crediting   : send CreditWalletCommand to destination wallet consumer
+///     [DebitFailed]      -> Failed      : consumer set Status=Failed before publishing this event
 ///
 ///   Crediting
-///     → [WalletCredited]   → Completed   : mark Transaction.Complete (CompleteTransactionActivity)
-///                                          publish TransferCompletedEvent (cross-module, → Notifications)
-///     → [CreditFailed]     → Compensating: send ReverseDebitCommand (return funds to source wallet)
+///     [WalletCredited]   -> Completed   : publish TransferCompletedEvent (cross-module)
+///                                         consumer set Status=Completed before publishing WalletCreditedEvent
+///     [CreditFailed]     -> Compensating: send ReverseDebitCommand (return funds to source wallet)
 ///
 ///   Compensating
-///     → [DebitReversed]    → Failed      : mark Transaction.Failed (FailTransactionOnCompensationActivity)
+///     [DebitReversed]    -> Failed      : consumer set Status=Failed before publishing this event
 /// </summary>
 public sealed class TransferSagaStateMachine : MassTransitStateMachine<TransferSagaState>
 {
-    // ── States ────────────────────────────────────────────────────────────────
     public State Debiting { get; private set; } = null!;
     public State Crediting { get; private set; } = null!;
     public State Completed { get; private set; } = null!;
     public State Failed { get; private set; } = null!;
     public State Compensating { get; private set; } = null!;
 
-    // ── Events ────────────────────────────────────────────────────────────────
     public Event<TransferRequestedMessage> TransferRequested { get; private set; } = null!;
     public Event<WalletDebitedEvent> WalletDebited { get; private set; } = null!;
     public Event<WalletCreditedEvent> WalletCredited { get; private set; } = null!;
@@ -45,7 +46,6 @@ public sealed class TransferSagaStateMachine : MassTransitStateMachine<TransferS
     {
         InstanceState(x => x.CurrentState);
 
-        // Correlate all events to the saga instance by CorrelationId
         Event(() => TransferRequested, x => x.CorrelateById(ctx => ctx.Message.CorrelationId));
         Event(() => WalletDebited,     x => x.CorrelateById(ctx => ctx.Message.CorrelationId));
         Event(() => WalletCredited,    x => x.CorrelateById(ctx => ctx.Message.CorrelationId));
@@ -53,7 +53,7 @@ public sealed class TransferSagaStateMachine : MassTransitStateMachine<TransferS
         Event(() => CreditFailed,      x => x.CorrelateById(ctx => ctx.Message.CorrelationId));
         Event(() => DebitReversed,     x => x.CorrelateById(ctx => ctx.Message.CorrelationId));
 
-        // ── Initial → Debiting ────────────────────────────────────────────────
+        // Initial -> Debiting
         Initially(
             When(TransferRequested)
                 .Then(ctx =>
@@ -71,7 +71,7 @@ public sealed class TransferSagaStateMachine : MassTransitStateMachine<TransferS
                     ctx.Saga.Amount))
                 .TransitionTo(Debiting));
 
-        // ── Debiting ──────────────────────────────────────────────────────────
+        // Debiting -> Crediting | Failed
         During(Debiting,
             When(WalletDebited)
                 .Publish(ctx => new CreditWalletCommand(
@@ -83,14 +83,12 @@ public sealed class TransferSagaStateMachine : MassTransitStateMachine<TransferS
 
             When(DebitFailed)
                 .Then(ctx => ctx.Saga.FailureReason = ctx.Message.Reason)
-                .Activity(x => x.OfInstanceType<FailTransactionOnDebitActivity>())
                 .TransitionTo(Failed)
                 .Finalize());
 
-        // ── Crediting ─────────────────────────────────────────────────────────
+        // Crediting -> Completed | Compensating
         During(Crediting,
             When(WalletCredited)
-                .Activity(x => x.OfInstanceType<CompleteTransactionActivity>())
                 .Publish(ctx => new TransferCompletedEvent(
                     ctx.Saga.TransactionId,
                     ctx.Saga.SourceWalletId,
@@ -107,17 +105,17 @@ public sealed class TransferSagaStateMachine : MassTransitStateMachine<TransferS
                     ctx.Saga.CorrelationId,
                     ctx.Saga.TransactionId,
                     ctx.Saga.SourceWalletId,
-                    ctx.Saga.Amount))
+                    ctx.Saga.Amount,
+                    ctx.Saga.FailureReason))
                 .TransitionTo(Compensating));
 
-        // ── Compensating → Failed ─────────────────────────────────────────────
+        // Compensating -> Failed
         During(Compensating,
             When(DebitReversed)
-                .Activity(x => x.OfInstanceType<FailTransactionOnCompensationActivity>())
                 .TransitionTo(Failed)
                 .Finalize());
 
-        // Clean up finalized saga instances from the DB
+        // Remove finalized saga instances from the DB
         SetCompletedWhenFinalized();
     }
 }
