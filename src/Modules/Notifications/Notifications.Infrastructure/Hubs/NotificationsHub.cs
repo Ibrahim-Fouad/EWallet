@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
 
@@ -8,7 +9,7 @@ public sealed class NotificationsHub : Hub
 {
     public override async Task OnConnectedAsync()
     {
-        var userId = Context.UserIdentifier;
+        var userId = Context.User!.FindFirstValue(ClaimTypes.NameIdentifier) ?? Context.User!.FindFirstValue("sub");
         if (userId is not null)
             await Groups.AddToGroupAsync(Context.ConnectionId, userId);
 
@@ -17,7 +18,7 @@ public sealed class NotificationsHub : Hub
 
     public override async Task OnDisconnectedAsync(Exception? exception)
     {
-        var userId = Context.UserIdentifier;
+        var userId = Context.User!.FindFirstValue(ClaimTypes.NameIdentifier) ?? Context.User!.FindFirstValue("sub");
         if (userId is not null)
             await Groups.RemoveFromGroupAsync(Context.ConnectionId, userId);
 

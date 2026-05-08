@@ -58,6 +58,21 @@ app.UseMiddleware<CorrelationIdMiddleware>();
 app.UseSerilogRequestLogging();
 app.UseHttpsRedirection();
 app.UseStaticFiles();
+
+// SignalR WebSocket connections cannot carry Authorization headers.
+// Read access_token from the query string and inject it as a Bearer header
+// so OpenIddict's validation handler can authenticate hub connections normally.
+app.Use(async (context, next) =>
+{
+    var accessToken = context.Request.Query["access_token"].ToString();
+    if (!string.IsNullOrEmpty(accessToken) &&
+        context.Request.Path.StartsWithSegments("/hubs"))
+    {
+        context.Request.Headers.Authorization = $"Bearer {accessToken}";
+    }
+    await next(context);
+});
+
 app.UseAuthentication();
 app.UseAuthorization();
 app.UseRateLimiter();
