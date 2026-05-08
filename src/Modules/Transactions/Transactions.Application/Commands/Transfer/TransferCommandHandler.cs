@@ -45,7 +45,7 @@ internal sealed class TransferCommandHandler(
         }
 
         // 3 — Validate source wallet ownership
-        var sourceInfo = await walletLookupService.GetByIdAsync(request.SourceWalletId, cancellationToken);
+        var sourceInfo = await walletLookupService.GetByPhoneNumberAsync(request.SourcePhoneNumber, cancellationToken);
         if (sourceInfo.IsFailure)
             return Result.Failure<TransferResponse>(TransactionErrors.SourceWalletNotFound);
 
@@ -54,7 +54,7 @@ internal sealed class TransferCommandHandler(
                 Error.Unauthorized("Transaction.Unauthorized", "You do not own the source wallet."));
 
         // 4 — Validate destination wallet
-        var destInfo = await walletLookupService.GetByIdAsync(request.DestinationWalletId, cancellationToken);
+        var destInfo = await walletLookupService.GetByPhoneNumberAsync(request.DestinationPhoneNumber, cancellationToken);
         if (destInfo.IsFailure)
             return Result.Failure<TransferResponse>(TransactionErrors.DestinationWalletNotFound);
 
@@ -66,8 +66,8 @@ internal sealed class TransferCommandHandler(
         var description = $"transfer {request.Amount} from {DisplayName(sourceInfo.Value.PhoneNumber)} to {DisplayName(destInfo.Value.PhoneNumber)}";
         var transaction = Transaction.Create(
             request.IdempotencyKey,
-            request.SourceWalletId,
-            request.DestinationWalletId,
+            sourceInfo.Value.Id,
+            destInfo.Value.Id,
             request.Amount,
             sourceInfo.Value.Currency,
             description,
@@ -88,8 +88,8 @@ internal sealed class TransferCommandHandler(
         await eventBus.PublishAsync(new TransferRequestedMessage(
             transaction.Id,          // CorrelationId = TransactionId (one saga per transfer)
             transaction.Id,
-            request.SourceWalletId,
-            request.DestinationWalletId,
+            sourceInfo.Value.Id,
+            destInfo.Value.Id,
             request.Amount,
             sourceInfo.Value.Currency), cancellationToken);
 

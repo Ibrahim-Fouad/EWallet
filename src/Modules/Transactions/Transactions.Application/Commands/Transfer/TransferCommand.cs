@@ -4,8 +4,8 @@ namespace EWallet.Modules.Transactions.Application.Commands.Transfer;
 
 public sealed record TransferCommand(
     string IdempotencyKey,
-    Guid SourceWalletId,
-    Guid DestinationWalletId,
+    string SourcePhoneNumber,
+    string DestinationPhoneNumber,
     decimal Amount,
     Guid RequestingUserId,
     string? Notes = null) : ICommand<TransferResponse>;

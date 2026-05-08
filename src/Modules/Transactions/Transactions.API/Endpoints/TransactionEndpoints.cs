@@ -25,7 +25,7 @@ public static class TransactionEndpoints
                 return Results.BadRequest(new { Code = "Transfer.MissingIdempotencyKey", Description = "Idempotency-Key header is required." });
 
             var userId = context.User.GetTransactionUserId();
-            var command = new TransferCommand(idempotencyKey, request.SourceWalletId, request.DestinationWalletId, request.Amount, userId, request.Notes);
+            var command = new TransferCommand(idempotencyKey, request.SourcePhoneNumber, request.DestinationPhoneNumber, request.Amount, userId, request.Notes);
             var result = await mediator.Send(command, ct);
 
             return result.IsSuccess
@@ -53,8 +53,8 @@ public static class TransactionEndpoints
         })
         .WithName("GetTransactionById");
 
-        group.MapGet("/wallets/{walletId:guid}/transactions", async (
-            Guid walletId,
+        group.MapGet("/wallets/{phoneNumber}/transactions", async (
+            string phoneNumber,
             int page,
             int pageSize,
             HttpContext context,
@@ -62,7 +62,7 @@ public static class TransactionEndpoints
             CancellationToken ct) =>
         {
             var userId = context.User.GetTransactionUserId();
-            var query = new GetTransactionHistoryQuery(walletId, userId, page < 1 ? 1 : page, pageSize < 1 ? 20 : pageSize);
+            var query = new GetTransactionHistoryQuery(phoneNumber, userId, page < 1 ? 1 : page, pageSize < 1 ? 20 : pageSize);
             var result = await mediator.Send(query, ct);
 
             return result.IsSuccess
@@ -75,7 +75,7 @@ public static class TransactionEndpoints
     }
 }
 
-public sealed record TransferRequest(Guid SourceWalletId, Guid DestinationWalletId, decimal Amount, string? Notes = null);
+public sealed record TransferRequest(string SourcePhoneNumber, string DestinationPhoneNumber, decimal Amount, string? Notes = null);
 
 internal static class TransactionClaimsPrincipalExtensions
 {

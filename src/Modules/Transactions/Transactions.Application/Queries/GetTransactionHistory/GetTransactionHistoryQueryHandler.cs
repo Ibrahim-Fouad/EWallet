@@ -16,7 +16,7 @@ internal sealed class GetTransactionHistoryQueryHandler(
         GetTransactionHistoryQuery request,
         CancellationToken cancellationToken)
     {
-        var walletInfo = await walletLookupService.GetByIdAsync(request.WalletId, cancellationToken);
+        var walletInfo = await walletLookupService.GetByPhoneNumberAsync(request.PhoneNumber, cancellationToken);
         if (walletInfo.IsFailure)
             return Result.Failure<PagedResult<TransactionDto>>(TransactionErrors.SourceWalletNotFound);
 
@@ -25,7 +25,7 @@ internal sealed class GetTransactionHistoryQueryHandler(
                 Error.Unauthorized("Transaction.Unauthorized", "You do not own this wallet."));
 
         var paged = await transactionRepository.GetByWalletIdAsync(
-            request.WalletId,
+            walletInfo.Value.Id,
             request.Page,
             request.PageSize,
             cancellationToken);
