@@ -1,3 +1,4 @@
+using EWallet.Modules.Transactions.Application.Abstractions;
 using EWallet.Modules.Transactions.Domain.Repositories;
 using EWallet.Modules.Transactions.Infrastructure.Sagas;
 using MassTransit;
@@ -11,13 +12,24 @@ namespace EWallet.Modules.Transactions.Infrastructure.Sagas.Activities;
 /// FailureReason is the original credit-failure reason stored in context.Saga.FailureReason
 /// when CreditFailedEvent was received (via .Then() in the state machine).
 /// </summary>
-public sealed class FailTransactionOnCompensationActivity(ITransactionRepository transactionRepository)
+public sealed class FailTransactionOnCompensationActivity(
+    ITransactionRepository transactionRepository,
+    ITransactionUnitOfWork unitOfWork)
     : IStateMachineActivity<TransferSagaState>
 {
     public async Task Execute(
         BehaviorContext<TransferSagaState> context,
         IBehavior<TransferSagaState> next)
-        => await next.Execute(context);
+    {
+        var transaction = await transactionRepository.GetByIdAsync(
+            context.Saga.TransactionId, context.CancellationToken);
+
+        transaction?.Fail(context.Saga.FailureReason);
+
+        await unitOfWork.SaveChangesAsync(context.CancellationToken);
+
+        await next.Execute(context);
+    }
 
     public async Task Execute<T>(
         BehaviorContext<TransferSagaState, T> context,
@@ -28,6 +40,8 @@ public sealed class FailTransactionOnCompensationActivity(ITransactionRepository
             context.Saga.TransactionId, context.CancellationToken);
 
         transaction?.Fail(context.Saga.FailureReason);
+
+        await unitOfWork.SaveChangesAsync(context.CancellationToken);
 
         await next.Execute(context);
     }
