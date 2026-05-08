@@ -3,19 +3,22 @@ var builder = DistributedApplication.CreateBuilder(args);
 var sqlServerPassword =
     builder.AddParameter("sqlserver-password", "H-6H+hRzHWQrr-nZ4.3(mT", secret: true);
 
+var rabbitmqUsername = builder.AddParameter("rabbitmq-username", "guest");
+var rabbitmqPassword = builder.AddParameter("rabbitmq-password", "guest");
+
 var sqlServer = builder.AddSqlServer("sqlserver", port: 50607, password: sqlServerPassword)
     .WithContainerName("ewallet-sqlserver")
     .WithDataVolume("ewallet-sqlserver-data")
     .WithLifetime(ContainerLifetime.Persistent);
 
-var db = sqlServer.AddDatabase("EWallet");
+var db = sqlServer.AddDatabase("EWallet-Db");
 
 var redis = builder.AddRedis("redis")
     .WithContainerName("ewallet-redis")
     .WithDataVolume("ewallet-redis-data")
     .WithLifetime(ContainerLifetime.Persistent);
 
-var rabbitmq = builder.AddRabbitMQ("rabbitmq")
+var rabbitmq = builder.AddRabbitMQ("rabbitmq", rabbitmqUsername, rabbitmqPassword)
     .WithContainerName("ewallet-rabbitmq")
     .WithManagementPlugin()
     .WithDataVolume("ewallet-rabbitmq-data")
