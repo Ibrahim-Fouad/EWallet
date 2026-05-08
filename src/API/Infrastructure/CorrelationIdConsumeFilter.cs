@@ -1,6 +1,7 @@
 using EWallet.BuildingBlocks.Application.Abstractions;
 using MassTransit;
 using Serilog.Context;
+using LogContext = Serilog.Context.LogContext;
 
 namespace EWallet.API.Infrastructure;
 
