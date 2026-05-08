@@ -8,6 +8,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using OpenIddict.Abstractions;
+using OpenIddict.Validation.AspNetCore;
 
 namespace EWallet.Modules.Identity.Infrastructure;
 
@@ -44,7 +45,13 @@ public static class DependencyInjection
         // MUST be IdentityConstants.ApplicationScheme — SignInManager.PasswordSignInAsync
         // and SignInManager.SignInAsync both write to this scheme.
         // The API itself continues to use JWT Bearer tokens exclusively.
-        services.AddAuthentication()
+        // DefaultAuthenticateScheme/DefaultChallengeScheme must point to the OpenIddict
+        // Bearer validation handler so that RequireAuthorization() can issue a 401 challenge.
+        services.AddAuthentication(options =>
+            {
+                options.DefaultAuthenticateScheme = OpenIddictValidationAspNetCoreDefaults.AuthenticationScheme;
+                options.DefaultChallengeScheme    = OpenIddictValidationAspNetCoreDefaults.AuthenticationScheme;
+            })
             .AddCookie(IdentityConstants.ApplicationScheme, options =>
             {
                 options.LoginPath         = "/Account/Login";
