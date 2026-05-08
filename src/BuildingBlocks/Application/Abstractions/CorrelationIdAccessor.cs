@@ -1,6 +1,6 @@
 namespace EWallet.BuildingBlocks.Application.Abstractions;
 
-internal sealed class CorrelationIdAccessor : ICorrelationIdAccessor
+public sealed class CorrelationIdAccessor : ICorrelationIdAccessor
 {
     private Guid _id;
     private bool _set;
