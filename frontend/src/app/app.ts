@@ -1,11 +1,16 @@
-import { Component, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component } from '@angular/core';
+import { RouterOutlet } from '@angular/router';
+
+import { ToastStackComponent } from './shared/ui/toast-stack.component';
 
 @Component({
   selector: 'app-root',
-  templateUrl: './app.html',
-  standalone: false,
-  styleUrl: './app.css'
+  imports: [RouterOutlet, ToastStackComponent],
+  template: `
+    <router-outlet />
+    <app-toast-stack />
+  `,
+  styleUrl: './app.css',
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class App {
-  protected readonly title = signal('ewallet-frontend');
-}
+export class App {}
