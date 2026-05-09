@@ -2,9 +2,7 @@ namespace EWallet.Modules.Transactions.Application.DTOs;
 
 public sealed record TransactionDto(
     Guid Id,
-    string IdempotencyKey,
-    Guid SourceWalletId,
-    Guid DestinationWalletId,
+    string DestinationPhoneNumber,
     decimal Amount,
     string Currency,
     string Status,

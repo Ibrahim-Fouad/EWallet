@@ -33,9 +33,7 @@ internal sealed class GetTransactionByIdQueryHandler(
 
         return Result.Success(new TransactionDto(
             transaction.Id,
-            transaction.IdempotencyKey,
-            transaction.SourceWalletId,
-            transaction.DestinationWalletId,
+            transaction.DestinationPhoneNumber,
             transaction.Amount,
             transaction.Currency,
             transaction.Status.ToString(),

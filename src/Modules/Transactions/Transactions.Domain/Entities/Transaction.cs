@@ -1,5 +1,4 @@
 using EWallet.BuildingBlocks.Domain.Abstractions;
-using EWallet.Modules.Transactions.Domain.Entities;
 using EWallet.Modules.Transactions.Domain.Enums;
 using EWallet.Modules.Transactions.Domain.Events;
 
@@ -20,6 +19,7 @@ public sealed class Transaction : AggregateRoot
     public DateTimeOffset CreatedAt { get; private set; }
     public DateTimeOffset? CompletedAt { get; private set; }
 
+    public string DestinationPhoneNumber { get; private set; } = string.Empty;
     public string? FailureReason { get; private set; }
     public string Description { get; private set; } = string.Empty;
     public string? Notes { get; private set; }
@@ -33,6 +33,7 @@ public sealed class Transaction : AggregateRoot
         decimal amount,
         string currency,
         string description,
+        string destinationPhoneNumber,
         string? notes = null)
     {
         var transaction = new Transaction
@@ -46,6 +47,7 @@ public sealed class Transaction : AggregateRoot
             Status = TransactionStatus.Pending,
             CreatedAt = DateTimeOffset.UtcNow,
             Description = description,
+            DestinationPhoneNumber = destinationPhoneNumber,
             Notes = notes
         };
 

@@ -71,6 +71,7 @@ internal sealed class TransferCommandHandler(
             request.Amount,
             sourceInfo.Value.Currency,
             description,
+            destInfo.Value.PhoneNumber,
             request.Notes);
 
         transactionRepository.Add(transaction);

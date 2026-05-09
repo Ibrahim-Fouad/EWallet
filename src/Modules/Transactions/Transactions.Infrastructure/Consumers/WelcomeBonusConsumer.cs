@@ -41,6 +41,7 @@ public sealed class WelcomeBonusConsumer(ITransactionRepository transactionRepos
             amount: msg.Amount,
             currency: msg.Currency,
             description: description,
+            destinationPhoneNumber: msg.DestinationPhoneNumber,
             notes: null);
 
         transactionRepository.Add(transaction);

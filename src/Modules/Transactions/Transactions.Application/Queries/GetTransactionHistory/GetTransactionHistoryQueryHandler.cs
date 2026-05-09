@@ -33,9 +33,7 @@ internal sealed class GetTransactionHistoryQueryHandler(
         var dtos = paged.Items
             .Select(t => new TransactionDto(
                 t.Id,
-                t.IdempotencyKey,
-                t.SourceWalletId,
-                t.DestinationWalletId,
+                t.DestinationPhoneNumber,
                 t.Amount,
                 t.Currency,
                 t.Status.ToString(),

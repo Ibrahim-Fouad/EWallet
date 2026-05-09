@@ -20,6 +20,10 @@ internal sealed class TransactionConfiguration : IEntityTypeConfiguration<Transa
         builder.Property(t => t.SourceWalletId).IsRequired();
         builder.Property(t => t.DestinationWalletId).IsRequired();
 
+        builder.Property(t => t.DestinationPhoneNumber)
+            .IsRequired()
+            .HasMaxLength(20);
+
         builder.Property(t => t.Amount)
             .IsRequired()
             .HasColumnType("decimal(18,4)");
