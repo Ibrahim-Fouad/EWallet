@@ -64,6 +64,13 @@ public static class DependencyInjection
             // but the scheme must still be registered or ASP.NET Core throws an InvalidOperationException.
             .AddCookie(IdentityConstants.ExternalScheme);
 
+        services.AddCors(options =>
+            options.AddPolicy("Angular", policy =>
+                policy.WithOrigins("http://localhost:4200")
+                      .AllowAnyHeader()
+                      .AllowAnyMethod()
+                      .AllowCredentials()));
+
         services.AddOpenIddict()
             .AddCore(options =>
                 options.UseEntityFrameworkCore()

@@ -58,6 +58,7 @@ app.UseMiddleware<CorrelationIdMiddleware>();
 app.UseSerilogRequestLogging();
 app.UseHttpsRedirection();
 app.UseStaticFiles();
+app.UseCors("Angular");
 
 // SignalR WebSocket connections cannot carry Authorization headers.
 // Read access_token from the query string and inject it as a Bearer header

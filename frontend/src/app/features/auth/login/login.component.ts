@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { Router, RouterLink } from '@angular/router';
+import { RouterLink } from '@angular/router';
 
 import { AuthService } from '../../../core/services/auth.service';
 import { IconComponent } from '../../../shared/icons/icon.component';
@@ -121,7 +121,7 @@ const EMAIL_PATTERN = /^\S+@\S+\.\S+$/;
               <div style="flex: 1; height: 1px; background: var(--border)"></div>
             </div>
 
-            <button type="button" class="btn btn-secondary btn-lg">
+            <button type="button" class="btn btn-secondary btn-lg" (click)="submit()">
               <app-icon name="shield" [size]="16" /> Sign in with SSO
             </button>
           </form>
@@ -145,7 +145,6 @@ const EMAIL_PATTERN = /^\S+@\S+\.\S+$/;
 export class LoginComponent {
   private readonly fb = inject(FormBuilder);
   private readonly auth = inject(AuthService);
-  private readonly router = inject(Router);
 
   protected readonly showPwd = signal(false);
   protected readonly loading = signal(false);
@@ -178,12 +177,7 @@ export class LoginComponent {
   }
 
   protected async submit(): Promise<void> {
-    this.submitted.set(true);
-    if (this.form.invalid) return;
     this.loading.set(true);
-    const { email, password, rememberMe } = this.form.getRawValue();
-    await this.auth.login({ email, password, rememberMe });
-    this.loading.set(false);
-    await this.router.navigateByUrl('/dashboard');
+    await this.auth.initiateLogin('/dashboard');
   }
 }

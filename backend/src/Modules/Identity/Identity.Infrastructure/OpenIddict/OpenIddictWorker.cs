@@ -32,6 +32,7 @@ public sealed class OpenIddictWorker(IServiceProvider serviceProvider) : IHosted
             DisplayName = "E-Wallet Client",
             RedirectUris =
             {
+                new Uri("http://localhost:4200/auth/callback"),
                 new Uri("https://localhost:7000/scalar/"),
             },
             Permissions =

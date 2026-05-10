@@ -7,7 +7,7 @@ import {
   ValidationErrors,
   Validators,
 } from '@angular/forms';
-import { Router, RouterLink } from '@angular/router';
+import { RouterLink } from '@angular/router';
 
 import { AuthService } from '../../../core/services/auth.service';
 import { IconComponent } from '../../../shared/icons/icon.component';
@@ -186,7 +186,6 @@ function pwStrength(p: string): number {
 export class RegisterComponent {
   private readonly fb = inject(FormBuilder);
   private readonly auth = inject(AuthService);
-  private readonly router = inject(Router);
 
   protected readonly showPwd = signal(false);
   protected readonly loading = signal(false);
@@ -250,9 +249,6 @@ export class RegisterComponent {
     this.submitted.set(true);
     if (this.form.invalid) return;
     this.loading.set(true);
-    const { name, email, password } = this.form.getRawValue();
-    await this.auth.register({ fullName: name, email, password });
-    this.loading.set(false);
-    await this.router.navigateByUrl('/dashboard');
+    await this.auth.initiateLogin('/dashboard');
   }
 }
