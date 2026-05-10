@@ -11,6 +11,7 @@ internal sealed class NotificationService(IHubContext<NotificationsHub> hubConte
         Guid transactionId,
         decimal amount,
         string currency,
+        string senderPhoneNumber,
         CancellationToken cancellationToken = default)
     {
         await hubContext.Clients
@@ -20,7 +21,42 @@ internal sealed class NotificationService(IHubContext<NotificationsHub> hubConte
                 TransactionId = transactionId,
                 Amount = amount,
                 Currency = currency,
+                SenderPhoneNumber = senderPhoneNumber,
                 ReceivedAt = DateTimeOffset.UtcNow
+            }, cancellationToken);
+    }
+
+    public async Task SendTransactionCompletedAsync(
+        Guid senderUserId,
+        Guid transactionId,
+        decimal amount,
+        string currency,
+        DateTimeOffset completedAt,
+        CancellationToken cancellationToken = default)
+    {
+        await hubContext.Clients
+            .Group(senderUserId.ToString())
+            .SendAsync("TransactionCompleted", new
+            {
+                TransactionId = transactionId,
+                Amount = amount,
+                Currency = currency,
+                CompletedAt = completedAt
+            }, cancellationToken);
+    }
+
+    public async Task SendTransactionFailedAsync(
+        Guid senderUserId,
+        Guid transactionId,
+        string failureReason,
+        CancellationToken cancellationToken = default)
+    {
+        await hubContext.Clients
+            .Group(senderUserId.ToString())
+            .SendAsync("TransactionFailed", new
+            {
+                TransactionId = transactionId,
+                FailureReason = failureReason
             }, cancellationToken);
     }
 }

@@ -14,7 +14,7 @@ namespace EWallet.Modules.Transactions.Infrastructure.Sagas;
 ///
 ///   Debiting
 ///     → [WalletDebited]    → Crediting   : send CreditWalletCommand to destination wallet consumer
-///     → [DebitFailed]      → Failed      : mark Transaction.Failed (FailTransactionOnDebitActivity)
+///     → [DebitFailed]      → Failed      : mark Transaction.Failed, publish TransferFailedEvent
 ///
 ///   Crediting
 ///     → [WalletCredited]   → Completed   : mark Transaction.Complete (CompleteTransactionActivity)
@@ -22,7 +22,7 @@ namespace EWallet.Modules.Transactions.Infrastructure.Sagas;
 ///     → [CreditFailed]     → Compensating: send ReverseDebitCommand (return funds to source wallet)
 ///
 ///   Compensating
-///     → [DebitReversed]    → Failed      : mark Transaction.Failed (FailTransactionOnCompensationActivity)
+///     → [DebitReversed]    → Failed      : mark Transaction.Failed, publish TransferFailedEvent
 /// </summary>
 public sealed class TransferSagaStateMachine : MassTransitStateMachine<TransferSagaState>
 {
@@ -84,6 +84,11 @@ public sealed class TransferSagaStateMachine : MassTransitStateMachine<TransferS
             When(DebitFailed)
                 .Then(ctx => ctx.Saga.FailureReason = ctx.Message.Reason)
                 .Activity(x => x.OfInstanceType<FailTransactionOnDebitActivity>())
+                .Publish(ctx => new TransferFailedEvent(
+                    ctx.Saga.TransactionId,
+                    ctx.Saga.SourceWalletId,
+                    ctx.Saga.FailureReason ?? "Transfer failed",
+                    DateTimeOffset.UtcNow))
                 .TransitionTo(Failed)
                 .Finalize());
 
@@ -114,6 +119,11 @@ public sealed class TransferSagaStateMachine : MassTransitStateMachine<TransferS
         During(Compensating,
             When(DebitReversed)
                 .Activity(x => x.OfInstanceType<FailTransactionOnCompensationActivity>())
+                .Publish(ctx => new TransferFailedEvent(
+                    ctx.Saga.TransactionId,
+                    ctx.Saga.SourceWalletId,
+                    ctx.Saga.FailureReason ?? "Transfer failed",
+                    DateTimeOffset.UtcNow))
                 .TransitionTo(Failed)
                 .Finalize());
 

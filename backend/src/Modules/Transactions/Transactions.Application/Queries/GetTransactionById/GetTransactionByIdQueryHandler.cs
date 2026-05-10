@@ -31,8 +31,11 @@ internal sealed class GetTransactionByIdQueryHandler(
             return Result.Failure<TransactionDto>(
                 Error.Unauthorized("Transaction.Unauthorized", "You are not a participant in this transaction."));
 
+        var sourcePhoneNumber = sourceInfo.IsSuccess ? sourceInfo.Value.PhoneNumber : string.Empty;
+
         return Result.Success(new TransactionDto(
             transaction.Id,
+            sourcePhoneNumber,
             transaction.DestinationPhoneNumber,
             transaction.Amount,
             transaction.Currency,

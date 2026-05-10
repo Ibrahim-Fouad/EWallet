@@ -1,6 +1,7 @@
 export const environment = {
   production: false,
   backendUrl: 'https://localhost:7000',
+  signalRUrl: 'https://localhost:7000',
   oauth: {
     clientId: 'ewallet-client',
     authorizationEndpoint: 'https://localhost:7000/connect/authorize',

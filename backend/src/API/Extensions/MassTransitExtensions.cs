@@ -44,6 +44,7 @@ internal static class MassTransitExtensions
             x.AddConsumer<ReverseDebitConsumer>();
             x.AddConsumer<WelcomeBonusConsumer>();
             x.AddConsumer<TransferCompletedConsumer>();
+            x.AddConsumer<TransferFailedConsumer>();
             x.AddConsumer<UserRegisteredConsumer>();
 
             // ── EF Core outbox (non-consumer / HTTP-handler publish) ────────────

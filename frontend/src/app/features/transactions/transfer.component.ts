@@ -410,12 +410,18 @@ export class TransferComponent {
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (res) => {
+          this.state.addPendingOutboundTransaction({
+            transactionId: res.transactionId,
+            sourcePhone: from.phone,
+            destinationPhone: this.toPhone(),
+            amount: this.amountNum(),
+            currency: res.currency,
+          });
           this.state.pushToast({
             kind: 'info',
             title: 'Transfer is being processed',
-            body: `${fmtAmount(res.amount, res.currency)} will arrive shortly`,
+            body: `${fmtAmount(res.amount, res.currency)} to ${this.toPhone()}`,
           });
-          void this.state.refresh();
           void this.router.navigateByUrl('/history');
         },
         error: (err: unknown) => {

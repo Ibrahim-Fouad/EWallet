@@ -30,9 +30,14 @@ internal sealed class GetTransactionHistoryQueryHandler(
             request.PageSize,
             cancellationToken);
 
+        // Single query to resolve all source wallet phones for the page
+        var uniqueSourceIds = paged.Items.Select(t => t.SourceWalletId).Distinct();
+        var sourceWallets = await walletLookupService.GetByIdsAsync(uniqueSourceIds, cancellationToken);
+
         var dtos = paged.Items
             .Select(t => new TransactionDto(
                 t.Id,
+                sourceWallets.TryGetValue(t.SourceWalletId, out var src) ? src.PhoneNumber : string.Empty,
                 t.DestinationPhoneNumber,
                 t.Amount,
                 t.Currency,

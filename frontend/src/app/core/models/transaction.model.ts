@@ -24,6 +24,7 @@ export interface WalletDto {
 
 export interface TransactionDto {
   id: string;
+  sourcePhoneNumber: string;
   destinationPhoneNumber: string;
   amount: number;
   currency: string;
@@ -32,6 +33,26 @@ export interface TransactionDto {
   completedAt: string | null;
   description: string;
   notes: string | null;
+}
+
+export interface TransferReceivedPayload {
+  transactionId: string;
+  amount: number;
+  currency: string;
+  senderPhoneNumber: string;
+  receivedAt: string;
+}
+
+export interface TransactionCompletedPayload {
+  transactionId: string;
+  amount: number;
+  currency: string;
+  completedAt: string;
+}
+
+export interface TransactionFailedPayload {
+  transactionId: string;
+  failureReason: string;
 }
 
 export interface PagedResult<T> {

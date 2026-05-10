@@ -38,6 +38,22 @@ internal sealed class WalletLookupService(WalletsDbContext context) : IWalletLoo
             : Result.Success(wallet);
     }
 
+    public async Task<IReadOnlyDictionary<Guid, WalletInfo>> GetByIdsAsync(
+        IEnumerable<Guid> walletIds,
+        CancellationToken cancellationToken = default)
+    {
+        var ids = walletIds as ICollection<Guid> ?? walletIds.ToList();
+
+        var wallets = await context.Wallets
+            .AsNoTracking()
+            .Where(w => ids.Contains(w.Id))
+            .Select(w => new WalletInfo(w.Id, w.OwnerId, w.PhoneNumber, w.Balance, w.Currency.ToString(), w.IsActive))
+            .ToListAsync(cancellationToken);
+
+        return wallets.ToDictionary(w => w.Id) as IReadOnlyDictionary<Guid, WalletInfo>
+               ?? new Dictionary<Guid, WalletInfo>();
+    }
+
     public async Task<Result<IReadOnlyList<WalletInfo>>> GetByOwnerIdAsync(
         Guid ownerId,
         CancellationToken cancellationToken = default)

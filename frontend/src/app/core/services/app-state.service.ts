@@ -1,11 +1,18 @@
 import { Injectable, computed, effect, inject, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 
-import { TransactionDto, WalletDto } from '../models/transaction.model';
+import {
+  TransactionCompletedPayload,
+  TransactionDto,
+  TransactionFailedPayload,
+  TransferReceivedPayload,
+  WalletDto,
+} from '../models/transaction.model';
 import { Wallet, WalletColor } from '../../shared/ui/wallet-card.component';
 import { AuthService } from './auth.service';
 import { WalletService } from './wallet.service';
 import { TransactionService } from './transaction.service';
+import { SignalRService } from './signalr.service';
 
 export interface User {
   id: string;
@@ -113,6 +120,7 @@ export class AppStateService {
   private readonly auth = inject(AuthService);
   private readonly walletService = inject(WalletService);
   private readonly txService = inject(TransactionService);
+  private readonly signalr = inject(SignalRService);
 
   readonly loadState = signal<'idle' | 'loading' | 'loaded' | 'error'>('idle');
 
@@ -167,6 +175,8 @@ export class AppStateService {
       this.transactions.set(allTx);
 
       this.loadState.set('loaded');
+
+      await this.connectSignalR();
     } catch {
       this.loadState.set('error');
     }
@@ -265,6 +275,30 @@ export class AppStateService {
     return { ok: true as const, tx };
   }
 
+  /** Called by TransferComponent immediately after the POST returns Pending.
+   *  Optimistically adds a pending outbound transaction to the list. */
+  addPendingOutboundTransaction(data: {
+    transactionId: string;
+    sourcePhone: string;
+    destinationPhone: string;
+    amount: number;
+    currency: string;
+  }): void {
+    const wallet = this.wallets().find((w) => w.phone === data.sourcePhone);
+    const tx: Transaction = {
+      id: data.transactionId,
+      type: 'out',
+      walletId: wallet?.id ?? '',
+      counter: data.destinationPhone,
+      counterName: COUNTERPARTS.find((c) => c.phone === data.destinationPhone)?.name ?? data.destinationPhone,
+      amount: data.amount,
+      currency: data.currency,
+      status: 'pending',
+      at: new Date().toISOString(),
+    };
+    this.transactions.update((ts) => [tx, ...ts]);
+  }
+
   simulateInbound(): void {
     const c = COUNTERPARTS[Math.floor(Math.random() * COUNTERPARTS.length)];
     const ws = this.wallets();
@@ -304,6 +338,136 @@ export class AppStateService {
     });
   }
 
+  private async connectSignalR(): Promise<void> {
+    try {
+      await this.signalr.connect();
+
+      this.signalr.transferReceived$.subscribe((p) => this.handleTransferReceived(p));
+      this.signalr.transactionCompleted$.subscribe((p) => this.handleTransactionCompleted(p));
+      this.signalr.transactionFailed$.subscribe((p) => this.handleTransactionFailed(p));
+    } catch {
+      // SignalR connection failure is non-fatal — app works without real-time
+    }
+  }
+
+  private handleTransferReceived(payload: TransferReceivedPayload): void {
+    // Find the destination wallet by matching currency (best-effort; wallets are loaded)
+    const wallet = this.wallets().find((w) => w.currency === payload.currency) ?? this.wallets()[0];
+    if (!wallet) return;
+
+    this.wallets.update((ws) =>
+      ws.map((w) => (w.id === wallet.id ? { ...w, balance: w.balance + payload.amount } : w))
+    );
+
+    const tx: Transaction = {
+      id: payload.transactionId,
+      type: 'in',
+      walletId: wallet.id,
+      counter: payload.senderPhoneNumber,
+      counterName: COUNTERPARTS.find((c) => c.phone === payload.senderPhoneNumber)?.name ?? payload.senderPhoneNumber,
+      amount: payload.amount,
+      currency: payload.currency,
+      status: 'completed',
+      at: payload.receivedAt,
+    };
+
+    this.transactions.update((ts) => {
+      const exists = ts.some((t) => t.id === payload.transactionId);
+      return exists ? ts : [tx, ...ts];
+    });
+
+    this.notifications.update((ns) => [
+      {
+        id: 'n_' + Math.random().toString(36).slice(2, 6),
+        kind: 'received',
+        title: `You received ${fmtAmount(payload.amount, payload.currency)}`,
+        body: `From ${payload.senderPhoneNumber}`,
+        at: payload.receivedAt,
+        read: false,
+      },
+      ...ns,
+    ]);
+
+    this.pushToast({
+      kind: 'received',
+      title: `Received ${fmtAmount(payload.amount, payload.currency)}`,
+      body: `From ${payload.senderPhoneNumber}`,
+    });
+  }
+
+  private handleTransactionCompleted(payload: TransactionCompletedPayload): void {
+    this.transactions.update((ts) =>
+      ts.map((t) =>
+        t.id === payload.transactionId ? { ...t, status: 'completed' as TransactionStatus } : t
+      )
+    );
+
+    // Refresh wallets to show the post-debit balance from the backend
+    void firstValueFrom(this.walletService.getMyWallets()).then((dtos) => {
+      this.wallets.update((ws) =>
+        ws.map((w, i) => ({ ...w, balance: dtos[i]?.balance ?? w.balance }))
+      );
+    });
+
+    this.pushToast({
+      kind: 'success',
+      title: 'Transfer completed',
+      body: `${fmtAmount(payload.amount, payload.currency)} sent successfully`,
+    });
+
+    this.notifications.update((ns) => [
+      {
+        id: 'n_' + Math.random().toString(36).slice(2, 6),
+        kind: 'completed',
+        title: 'Transfer completed',
+        body: `${fmtAmount(payload.amount, payload.currency)} delivered`,
+        at: payload.completedAt,
+        read: false,
+      },
+      ...ns,
+    ]);
+  }
+
+  private handleTransactionFailed(payload: TransactionFailedPayload): void {
+    // Find the failed transaction to restore the wallet balance
+    const tx = this.transactions().find((t) => t.id === payload.transactionId);
+
+    this.transactions.update((ts) =>
+      ts.map((t) =>
+        t.id === payload.transactionId
+          ? { ...t, status: 'failed' as TransactionStatus, failReason: payload.failureReason }
+          : t
+      )
+    );
+
+    // Restore optimistically deducted balance
+    if (tx) {
+      this.wallets.update((ws) =>
+        ws.map((w) =>
+          w.id === tx.walletId ? { ...w, balance: w.balance + tx.amount } : w
+        )
+      );
+    }
+
+    this.pushToast({
+      kind: 'error',
+      title: 'Transfer failed',
+      body: payload.failureReason,
+    });
+
+    this.notifications.update((ns) => [
+      {
+        id: 'n_' + Math.random().toString(36).slice(2, 6),
+        kind: 'failed',
+        title: 'Transfer failed',
+        body: payload.failureReason,
+        at: new Date().toISOString(),
+        read: false,
+      },
+      ...ns,
+    ]);
+  }
+
   private mapWalletDto(dto: WalletDto, index: number): InternalWallet {
     return {
       id: dto.id,
@@ -322,12 +486,18 @@ export class AppStateService {
       const isDeposit = dto.description.toLowerCase().includes('deposit');
       const isInbound = dto.destinationPhoneNumber === wallet.phone;
       const type: TransactionType = isDeposit ? 'deposit' : isInbound ? 'in' : 'out';
+      // For inbound transactions use the sender's phone; for outbound use the recipient's phone
+      const counterPhone = isDeposit
+        ? 'Bank transfer'
+        : isInbound
+          ? (dto.sourcePhoneNumber || dto.destinationPhoneNumber)
+          : dto.destinationPhoneNumber;
       return {
         id: dto.id,
         type,
         walletId: wallet.id,
-        counter: isDeposit ? 'Bank transfer' : dto.destinationPhoneNumber,
-        counterName: isDeposit ? 'Bank deposit' : dto.destinationPhoneNumber,
+        counter: counterPhone,
+        counterName: isDeposit ? 'Bank deposit' : counterPhone,
         amount: dto.amount,
         currency: dto.currency,
         status: this.mapStatus(dto.status),

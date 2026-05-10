@@ -14,6 +14,7 @@ public interface IWalletLookupService
 {
     Task<Result<WalletInfo>> GetByPhoneNumberAsync(string phoneNumber, CancellationToken cancellationToken = default);
     Task<Result<WalletInfo>> GetByIdAsync(Guid walletId, CancellationToken cancellationToken = default);
+    Task<IReadOnlyDictionary<Guid, WalletInfo>> GetByIdsAsync(IEnumerable<Guid> walletIds, CancellationToken cancellationToken = default);
     Task<Result<IReadOnlyList<WalletInfo>>> GetByOwnerIdAsync(Guid ownerId, CancellationToken cancellationToken = default);
     Task<Result<int>> CountByOwnerIdAsync(Guid ownerId, CancellationToken cancellationToken = default);
 }
