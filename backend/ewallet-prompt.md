@@ -116,22 +116,30 @@ src/
 - **Self-transfer is forbidden** — if the recipient's `PhoneNumber` belongs to the sender, the request is rejected with a validation error
 - All transfers are **single-currency** — source and destination wallets must share the same currency
 - Enforce **Idempotency** via `IdempotencyKey` (UUID sent by client)
-- Use **Saga Pattern** (orchestrated via MediatR pipeline):
-  - Step 1: Debit source wallet
-  - Step 2: Credit destination wallet
-  - Step 3: Publish domain event
-  - Compensate on failure (reverse debit)
+- Use **MassTransit Saga State Machine** (`TransferSagaStateMachine`) for orchestrated, durable transfer execution:
+  - States: `Initial` → `Debiting` → `Crediting` → `Completed`
+  - Compensation path: `Crediting` → `Compensating` → `Failed` (credit failure triggers debit reversal via `ReverseDebitConsumer`)
+  - Debit-only failure path: `Debiting` → `Failed` (no compensation needed)
+  - Publishes `TransferCompletedEvent` on success; publishes `TransferFailedEvent` on failure
+  - Saga instance is finalized (removed from DB) after reaching a terminal state (`Completed` or `Failed`)
 - Use **Redis Distributed Lock** to prevent race conditions on wallet balance
 - Use **Optimistic Concurrency** (`RowVersion` / `rowversion` in SQL Server via EF Core)
 - All transactions are **append-only** (never deleted or updated)
 - Full **Audit Trail** for every state change
 
 ### 4. Notifications Module
-- SignalR hub: notify receiver in real-time when a transfer arrives
+- SignalR hub (`/hubs/notifications`, JWT auth via query parameter) delivers three targeted notifications scoped to `user-{userId}` groups:
+  - **Receiver** — `TransferReceived`: amount, currency, sender's PhoneNumber (resolved fresh at notification time), receivedAt timestamp
+  - **Sender** — `TransactionCompleted`: amount, currency, completedAt timestamp (triggered by `TransferCompletedEvent`)
+  - **Sender** — `TransactionFailed`: failureReason string (triggered by `TransferFailedEvent` on saga failure)
+- Phone numbers in notifications are always resolved fresh via `IWalletLookupService` — never stored in the notification payload
 - Hangfire background job: daily reconciliation report (sum of all balances = sum of all transaction net)
 
 ### 5. Reporting (Simple)
 - GET transaction history (paginated, filterable) — user sees all transactions on their wallet (both incoming and outgoing)
+  - **Authorization (bilateral):** User can query any transaction where they own either the source wallet **or** the destination wallet — both sender and receiver can see the same transaction record
+  - **Phone number resolution:** `DestinationPhoneNumber` is stored on the transaction row at insert time; `SourcePhoneNumber` is not stored — it is resolved at query time via a single batch call to `IWalletLookupService` (avoids N+1 queries)
+  - Transaction response fields: `id`, `sourceWalletPhoneNumber`, `destinationWalletPhoneNumber`, `amount`, `currency`, `status`, `createdAt`, `completedAt` (nullable), `failureReason`, `description`, `notes` (optional)
 - Admin reporting (statistics, aggregates) — deferred to a future phase
 - Uses separate **Read Model** (CQRS read side, optimized query)
 
@@ -143,7 +151,7 @@ src/
 |---|---|
 | CQRS | All modules via MediatR |
 | Domain Events (in-process) | MediatR Notifications within same module |
-| Domain Events (cross-module) | MassTransit v8.4.0 + RabbitMQ |
+| Domain Events (cross-module) | MassTransit v8.4.0 + RabbitMQ — two integration events: `TransferCompletedEvent` (saga success, consumed by `TransferCompletedConsumer`) and `TransferFailedEvent` (saga failure, consumed by `TransferFailedConsumer`) |
 | Saga (Orchestration) | Transfer use case via MassTransit Saga State Machine |
 | Idempotency | Transfer endpoint |
 | Distributed Locking | Redis lock on wallet before debit |
@@ -178,7 +186,9 @@ wallets(id: '00000000-0000-0000-0000-000000000002', owner_id: '...system user...
 
 ### Schema: `transactions`
 ```sql
-transactions(id, idempotency_key, source_wallet_id, destination_wallet_id, amount, currency, status, created_at, completed_at, failure_reason)
+transactions(id, idempotency_key, source_wallet_id, destination_wallet_id, destination_phone_number, amount, currency, status, description, notes, created_at, completed_at, failure_reason)
+-- destination_phone_number: stored at insert time; source phone is NOT stored — resolved at read time via IWalletLookupService
+-- notes: nullable, optional sender memo attached to the transfer
 transaction_entries(id, transaction_id, wallet_id, entry_type [debit/credit], amount, created_at)
 ```
 
