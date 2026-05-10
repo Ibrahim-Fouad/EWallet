@@ -22,6 +22,11 @@ public sealed class RegisterModel(
 
     public sealed class InputModel
     {
+        
+        [Required, MaxLength(100)]
+        [Display(Name = "Full Name")]
+        public string FullName { get; set; } = string.Empty;
+        
         [Required, EmailAddress, MaxLength(256)]
         [Display(Name = "Email")]
         public string Email { get; set; } = string.Empty;
@@ -87,6 +92,7 @@ public sealed class RegisterModel(
             NationalId = Input.NationalId,
             PhoneNumber = Input.PhoneNumber,
             CreatedAt = DateTimeOffset.UtcNow,
+            FullName = Input.FullName
         };
 
         var result = await userManager.CreateAsync(user, Input.Password);

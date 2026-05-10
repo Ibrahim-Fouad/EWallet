@@ -1,6 +1,11 @@
-import { Injectable, computed, signal } from '@angular/core';
+import { Injectable, computed, effect, inject, signal } from '@angular/core';
+import { firstValueFrom } from 'rxjs';
 
+import { TransactionDto, WalletDto } from '../models/transaction.model';
 import { Wallet, WalletColor } from '../../shared/ui/wallet-card.component';
+import { AuthService } from './auth.service';
+import { WalletService } from './wallet.service';
+import { TransactionService } from './transaction.service';
 
 export interface User {
   id: string;
@@ -54,20 +59,6 @@ export interface Counterpart {
   phone: string;
 }
 
-const SEED_USER: User = {
-  id: 'usr_001',
-  fullName: 'Yara Mansour',
-  email: 'yara.mansour@example.com',
-  phone: '+20 100 234 5678',
-  joined: '2024-08-12',
-  avatar: 'YM',
-};
-
-const SEED_WALLETS: (Wallet & { id: string; created: string })[] = [
-  { id: 'w1', phone: '01012345678', currency: 'EGP', balance: 18420.75, status: 'active', primary: true, color: 'blue', created: '2024-08-12' },
-  { id: 'w2', phone: '01198765432', currency: 'USD', balance: 1250.40, status: 'active', primary: false, color: 'indigo', created: '2024-11-03' },
-];
-
 export const COUNTERPARTS: readonly Counterpart[] = [
   { name: 'Omar Khaled', phone: '01055443322' },
   { name: 'Layla Hassan', phone: '01187766554' },
@@ -77,28 +68,8 @@ export const COUNTERPARTS: readonly Counterpart[] = [
   { name: 'Hany Fouad', phone: '01122334455' },
 ];
 
-const SEED_TX: Transaction[] = [
-  { id: 'tx_8821', type: 'in', walletId: 'w1', counter: '01055443322', counterName: 'Omar Khaled', amount: 500, currency: 'EGP', status: 'completed', at: '2026-05-07T10:14:00', note: 'Lunch split' },
-  { id: 'tx_8819', type: 'out', walletId: 'w1', counter: '01187766554', counterName: 'Layla Hassan', amount: 1200, currency: 'EGP', status: 'completed', at: '2026-05-07T08:42:00', note: 'Rent share' },
-  { id: 'tx_8815', type: 'in', walletId: 'w2', counter: '01233445566', counterName: 'Mariam Sayed', amount: 75, currency: 'USD', status: 'completed', at: '2026-05-06T19:30:00' },
-  { id: 'tx_8810', type: 'deposit', walletId: 'w1', counter: 'Bank transfer', counterName: 'Bank deposit', amount: 5000, currency: 'EGP', status: 'completed', at: '2026-05-06T11:05:00' },
-  { id: 'tx_8807', type: 'out', walletId: 'w1', counter: '01099887766', counterName: 'Ahmed Tarek', amount: 320, currency: 'EGP', status: 'pending', at: '2026-05-06T09:15:00' },
-  { id: 'tx_8801', type: 'out', walletId: 'w2', counter: '01566778899', counterName: 'Nour Adel', amount: 150, currency: 'USD', status: 'completed', at: '2026-05-05T16:22:00' },
-  { id: 'tx_8795', type: 'in', walletId: 'w1', counter: '01122334455', counterName: 'Hany Fouad', amount: 2200, currency: 'EGP', status: 'completed', at: '2026-05-05T13:48:00' },
-  { id: 'tx_8788', type: 'out', walletId: 'w1', counter: '01055443322', counterName: 'Omar Khaled', amount: 80, currency: 'EGP', status: 'failed', at: '2026-05-04T22:11:00', failReason: 'Recipient wallet inactive' },
-  { id: 'tx_8780', type: 'in', walletId: 'w1', counter: '01233445566', counterName: 'Mariam Sayed', amount: 1500, currency: 'EGP', status: 'completed', at: '2026-05-04T15:00:00' },
-  { id: 'tx_8772', type: 'deposit', walletId: 'w2', counter: 'Bank transfer', counterName: 'Bank deposit', amount: 500, currency: 'USD', status: 'completed', at: '2026-05-03T10:30:00' },
-  { id: 'tx_8765', type: 'out', walletId: 'w1', counter: '01187766554', counterName: 'Layla Hassan', amount: 240, currency: 'EGP', status: 'completed', at: '2026-05-02T18:45:00' },
-  { id: 'tx_8760', type: 'in', walletId: 'w1', counter: '01099887766', counterName: 'Ahmed Tarek', amount: 600, currency: 'EGP', status: 'completed', at: '2026-05-02T12:10:00' },
-];
-
-const SEED_NOTIFS: AppNotification[] = [
-  { id: 'n1', kind: 'received', title: 'You received 500.00 EGP', body: 'From Omar Khaled · 01055443322', at: '2026-05-07T10:14:00', read: false },
-  { id: 'n2', kind: 'completed', title: 'Transfer completed', body: '1,200.00 EGP sent to Layla Hassan', at: '2026-05-07T08:42:00', read: false },
-  { id: 'n3', kind: 'received', title: 'You received 75.00 USD', body: 'From Mariam Sayed · 01233445566', at: '2026-05-06T19:30:00', read: true },
-  { id: 'n4', kind: 'deposit', title: 'Deposit completed', body: '5,000.00 EGP added to Wallet 01012345678', at: '2026-05-06T11:05:00', read: true },
-  { id: 'n5', kind: 'failed', title: 'Transfer failed', body: 'Recipient wallet inactive — 80.00 EGP', at: '2026-05-04T22:11:00', read: true },
-];
+const EMPTY_USER: User = { id: '', fullName: '', email: '', phone: '', joined: '', avatar: '' };
+const WALLET_COLORS: WalletColor[] = ['blue', 'indigo', 'teal', 'slate'];
 
 export function fmtAmount(n: number, currency = 'EGP'): string {
   const formatted = n.toLocaleString('en-US', {
@@ -115,7 +86,7 @@ export function fmtSigned(n: number, currency: string, type: TransactionType): s
 
 export function relTime(iso: string): string {
   const d = new Date(iso);
-  const now = new Date('2026-05-07T11:00:00');
+  const now = new Date();
   const diff = (now.getTime() - d.getTime()) / 1000;
   if (diff < 60) return 'just now';
   if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
@@ -135,17 +106,76 @@ export function fmtDateTime(iso: string): string {
   });
 }
 
+type InternalWallet = Wallet & { id: string; created: string };
+
 @Injectable({ providedIn: 'root' })
 export class AppStateService {
-  readonly user = signal<User>(SEED_USER);
-  readonly wallets = signal<(Wallet & { id: string; created: string })[]>(SEED_WALLETS);
-  readonly transactions = signal<Transaction[]>(SEED_TX);
-  readonly notifications = signal<AppNotification[]>(SEED_NOTIFS);
+  private readonly auth = inject(AuthService);
+  private readonly walletService = inject(WalletService);
+  private readonly txService = inject(TransactionService);
+
+  readonly loadState = signal<'idle' | 'loading' | 'loaded' | 'error'>('idle');
+
+  constructor() {
+    effect(() => {
+      if (this.auth.authenticated()) {
+        void this.initialize();
+      }
+    });
+  }
+
+  readonly user = signal<User>(EMPTY_USER);
+  readonly wallets = signal<InternalWallet[]>([]);
+  readonly transactions = signal<Transaction[]>([]);
+  readonly notifications = signal<AppNotification[]>([]);
   readonly toasts = signal<Toast[]>([]);
 
   readonly unreadCount = computed(
     () => this.notifications().filter((n) => !n.read).length
   );
+
+  async initialize(): Promise<void> {
+    if (this.loadState() === 'loading' || this.loadState() === 'loaded') return;
+    this.loadState.set('loading');
+    try {
+      const claims = this.auth.getClaims();
+      if (claims) {
+        this.user.set({
+          id: claims.sub,
+          fullName: claims.name ?? 'User',
+          email: claims.email ?? '',
+          phone: claims.phone_number ?? '',
+          joined: '',
+          avatar: this.getInitials(claims.name ?? 'U'),
+        });
+      }
+
+      const walletDtos = await firstValueFrom(this.walletService.getMyWallets());
+      const internalWallets = walletDtos.map((w, i) => this.mapWalletDto(w, i));
+      this.wallets.set(internalWallets);
+
+      const allTxArrays = await Promise.all(
+        internalWallets.map((w) =>
+          firstValueFrom(this.txService.getHistory(w.phone, 1, 50)).then((paged) =>
+            this.mapTransactions(paged.items, w)
+          )
+        )
+      );
+      const allTx = allTxArrays
+        .flat()
+        .sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime());
+      this.transactions.set(allTx);
+
+      this.loadState.set('loaded');
+    } catch {
+      this.loadState.set('error');
+    }
+  }
+
+  async refresh(): Promise<void> {
+    this.loadState.set('idle');
+    await this.initialize();
+  }
 
   pushToast(toast: Omit<Toast, 'id'>): void {
     const id = 't_' + Math.random().toString(36).slice(2, 8);
@@ -169,14 +199,14 @@ export class AppStateService {
 
   createWallet({ phone, currency }: { phone: string; currency: string }) {
     const id = 'w' + (this.wallets().length + 1);
-    const w = {
+    const w: InternalWallet = {
       id,
       phone,
       currency,
       balance: 0,
       status: 'active',
       primary: false,
-      color: 'teal' as WalletColor,
+      color: WALLET_COLORS[this.wallets().length % WALLET_COLORS.length],
       created: new Date().toISOString(),
     };
     this.wallets.update((ws) => [...ws, w]);
@@ -208,34 +238,15 @@ export class AppStateService {
     fromWalletId,
     toPhone,
     amount,
-    simulateFail,
   }: {
     fromWalletId: string;
     toPhone: string;
     amount: number;
-    simulateFail?: boolean;
   }) {
     const w = this.wallets().find((x) => x.id === fromWalletId);
     if (!w) return { ok: false as const, reason: 'Source wallet not found' };
     if (amount > w.balance) return { ok: false as const, reason: 'Insufficient balance' };
-    const counterName =
-      COUNTERPARTS.find((c) => c.phone === toPhone)?.name ?? 'Recipient';
-    if (simulateFail) {
-      const tx: Transaction = {
-        id: 'tx_' + Math.floor(9000 + Math.random() * 999),
-        type: 'out',
-        walletId: fromWalletId,
-        counter: toPhone,
-        counterName,
-        amount,
-        currency: w.currency,
-        status: 'failed',
-        at: new Date().toISOString(),
-        failReason: 'Recipient wallet not found or inactive',
-      };
-      this.transactions.update((ts) => [tx, ...ts]);
-      return { ok: false as const, reason: tx.failReason!, tx };
-    }
+    const counterName = COUNTERPARTS.find((c) => c.phone === toPhone)?.name ?? 'Recipient';
     this.wallets.update((ws) =>
       ws.map((x) => (x.id === fromWalletId ? { ...x, balance: x.balance - amount } : x))
     );
@@ -256,10 +267,12 @@ export class AppStateService {
 
   simulateInbound(): void {
     const c = COUNTERPARTS[Math.floor(Math.random() * COUNTERPARTS.length)];
-    const w = this.wallets()[0];
+    const ws = this.wallets();
+    if (ws.length === 0) return;
+    const w = ws[0];
     const amount = Math.floor(50 + Math.random() * 500);
-    this.wallets.update((ws) =>
-      ws.map((x) => (x.id === w.id ? { ...x, balance: x.balance + amount } : x))
+    this.wallets.update((list) =>
+      list.map((x) => (x.id === w.id ? { ...x, balance: x.balance + amount } : x))
     );
     const tx: Transaction = {
       id: 'tx_' + Math.floor(9000 + Math.random() * 999),
@@ -289,5 +302,52 @@ export class AppStateService {
       title: `Received ${fmtAmount(amount, w.currency)}`,
       body: `From ${c.name}`,
     });
+  }
+
+  private mapWalletDto(dto: WalletDto, index: number): InternalWallet {
+    return {
+      id: dto.id,
+      phone: dto.phoneNumber,
+      currency: dto.currency,
+      balance: dto.balance,
+      status: dto.isActive ? 'active' : 'inactive',
+      primary: index === 0,
+      color: WALLET_COLORS[index % WALLET_COLORS.length],
+      created: dto.createdAt,
+    };
+  }
+
+  private mapTransactions(dtos: TransactionDto[], wallet: InternalWallet): Transaction[] {
+    return dtos.map((dto) => {
+      const isDeposit = dto.description.toLowerCase().includes('deposit');
+      const isInbound = dto.destinationPhoneNumber === wallet.phone;
+      const type: TransactionType = isDeposit ? 'deposit' : isInbound ? 'in' : 'out';
+      return {
+        id: dto.id,
+        type,
+        walletId: wallet.id,
+        counter: isDeposit ? 'Bank transfer' : dto.destinationPhoneNumber,
+        counterName: isDeposit ? 'Bank deposit' : dto.destinationPhoneNumber,
+        amount: dto.amount,
+        currency: dto.currency,
+        status: this.mapStatus(dto.status),
+        at: dto.createdAt,
+        note: dto.notes ?? undefined,
+      };
+    });
+  }
+
+  private mapStatus(s: string): TransactionStatus {
+    if (s === 'Completed') return 'completed';
+    if (s === 'Failed') return 'failed';
+    return 'pending';
+  }
+
+  private getInitials(name: string): string {
+    return name
+      .split(' ')
+      .slice(0, 2)
+      .map((p) => p[0]?.toUpperCase() ?? '')
+      .join('');
   }
 }

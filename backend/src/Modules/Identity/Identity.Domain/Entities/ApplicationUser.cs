@@ -4,6 +4,7 @@ namespace EWallet.Modules.Identity.Domain.Entities;
 
 public sealed class ApplicationUser : IdentityUser<Guid>
 {
+    public string FullName { get; set; } = string.Empty;
     public bool IsSystem { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
 

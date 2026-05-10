@@ -17,6 +17,7 @@ interface JwtPayload {
   sub: string;
   email?: string;
   name?: string;
+  phone_number?: string;
 }
 
 const REFRESH_TOKEN_KEY = 'ewallet_rt';
@@ -171,6 +172,11 @@ export class AuthService {
 
   getAccessToken(): string | null {
     return this._accessToken;
+  }
+
+  getClaims(): JwtPayload | null {
+    if (!this._accessToken) return null;
+    return this.parseJwt(this._accessToken);
   }
 
   isAuthenticated(): boolean {

@@ -62,7 +62,7 @@ public static class IdentityEndpoints
             identity.AddClaim(new Claim(OpenIddictConstants.Claims.Subject,       sub));
             identity.AddClaim(new Claim(OpenIddictConstants.Claims.Email,         appUser.Email        ?? string.Empty));
             identity.AddClaim(new Claim(OpenIddictConstants.Claims.EmailVerified, appUser.EmailConfirmed ? "true" : "false"));
-            identity.AddClaim(new Claim(OpenIddictConstants.Claims.Name,          appUser.UserName     ?? string.Empty));
+            identity.AddClaim(new Claim(OpenIddictConstants.Claims.Name,          appUser.FullName));
             identity.AddClaim(new Claim(OpenIddictConstants.Claims.PhoneNumber,   appUser.PhoneNumber  ?? string.Empty));
 
             var principal = new ClaimsPrincipal(identity);

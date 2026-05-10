@@ -6,6 +6,7 @@ import { IconComponent } from '../../shared/icons/icon.component';
 import { StatCardComponent } from '../../shared/ui/stat-card.component';
 import { TxTableComponent } from '../../shared/ui/tx-table.component';
 import { WalletCardComponent } from '../../shared/ui/wallet-card.component';
+import { SkeletonComponent } from '../../shared/ui/skeleton.component';
 import { BalanceChartComponent } from './balance-chart.component';
 
 @Component({
@@ -15,140 +16,177 @@ import { BalanceChartComponent } from './balance-chart.component';
     StatCardComponent,
     TxTableComponent,
     WalletCardComponent,
+    SkeletonComponent,
     BalanceChartComponent,
   ],
   template: `
-    <div class="page">
-      <div class="page-header">
-        <div>
-          <div
-            class="t-tiny secondary"
-            style="text-transform: uppercase; letter-spacing: 0.08em"
-          >
-            Welcome back
+    @if (loadState() === 'loading' || loadState() === 'idle') {
+      <div class="page">
+        <div class="page-header">
+          <div>
+            <app-skeleton [h]="14" [r]="4" [w]="'120px'" style="margin-bottom: 8px" />
+            <app-skeleton [h]="32" [r]="6" [w]="'260px'" />
           </div>
-          <h2 class="t-h1" style="margin-top: 4px">Hey, {{ firstName() }} 👋</h2>
         </div>
-        <div class="row gap-2">
-          <button type="button" class="btn btn-secondary" (click)="goTo('/deposit')">
-            <app-icon name="arrow-down" [size]="16" /> Deposit
-          </button>
-          <button type="button" class="btn btn-primary" (click)="goTo('/transfer')">
-            <app-icon name="send" [size]="16" /> New transfer
+        <div class="row gap-4" style="align-items: stretch">
+          @for (_ of [1, 2]; track _) {
+            <div style="flex: 1"><app-skeleton [h]="148" [r]="16" /></div>
+          }
+        </div>
+        <div class="row gap-4">
+          @for (_ of [1, 2, 3, 4]; track _) {
+            <div style="flex: 1"><app-skeleton [h]="88" [r]="12" /></div>
+          }
+        </div>
+        <app-skeleton [h]="260" [r]="16" />
+        <app-skeleton [h]="240" [r]="16" />
+      </div>
+    } @else if (loadState() === 'error') {
+      <div class="page" style="display: flex; align-items: center; justify-content: center; min-height: 60vh">
+        <div class="card" style="padding: 40px; text-align: center; max-width: 400px; width: 100%">
+          <span style="color: var(--error); display: inline-flex; justify-content: center">
+            <app-icon name="alert" [size]="32" />
+          </span>
+          <p style="margin-top: 16px; font-weight: 600; font-size: 16px">Could not load your data</p>
+          <p class="secondary t-small" style="margin-top: 6px">Check your connection and try again.</p>
+          <button type="button" class="btn btn-secondary" style="margin-top: 20px" (click)="reload()">
+            Try again
           </button>
         </div>
       </div>
+    } @else {
+      <div class="page">
+        <div class="page-header">
+          <div>
+            <div
+              class="t-tiny secondary"
+              style="text-transform: uppercase; letter-spacing: 0.08em"
+            >
+              Welcome back
+            </div>
+            <h2 class="t-h1" style="margin-top: 4px">Hey, {{ firstName() }} 👋</h2>
+          </div>
+          <div class="row gap-2">
+            <button type="button" class="btn btn-secondary" (click)="goTo('/deposit')">
+              <app-icon name="arrow-down" [size]="16" /> Deposit
+            </button>
+            <button type="button" class="btn btn-primary" (click)="goTo('/transfer')">
+              <app-icon name="send" [size]="16" /> New transfer
+            </button>
+          </div>
+        </div>
 
-      <div class="row gap-4" style="align-items: stretch">
-        @for (w of wallets(); track w.id) {
-          <div style="flex: 1; min-width: 0">
-            <app-wallet-card
-              [wallet]="w"
-              [interactive]="true"
-              (activate)="openWallet(w.id)"
+        <div class="row gap-4" style="align-items: stretch">
+          @for (w of wallets(); track w.id) {
+            <div style="flex: 1; min-width: 0">
+              <app-wallet-card
+                [wallet]="w"
+                [interactive]="true"
+                (activate)="openWallet(w.id)"
+              />
+            </div>
+          }
+          @if (wallets().length < 3) {
+            <button type="button" class="wallet-card-new" style="flex: 1" (click)="goTo('/wallets')">
+              <div
+                style="width: 40px; height: 40px; border-radius: 999px; border: 2px dashed currentColor; display: grid; place-items: center"
+              >
+                <app-icon name="plus" [size]="20" />
+              </div>
+              <div style="font-weight: 600; font-size: 14px">Open new wallet</div>
+              <div class="t-small">{{ remainingSlots() }} available</div>
+            </button>
+          }
+        </div>
+
+        <div class="row gap-4">
+          <div style="flex: 1">
+            <app-stat-card
+              icon="arrow-down"
+              label="Received this month"
+              [value]="receivedDisplay()"
+              trend="+18.2% vs last month"
+              trendDir="up"
             />
           </div>
-        }
-        @if (wallets().length < 3) {
-          <button type="button" class="wallet-card-new" style="flex: 1" (click)="goTo('/wallets')">
-            <div
-              style="width: 40px; height: 40px; border-radius: 999px; border: 2px dashed currentColor; display: grid; place-items: center"
-            >
-              <app-icon name="plus" [size]="20" />
+          <div style="flex: 1">
+            <app-stat-card
+              icon="arrow-up"
+              label="Sent this month"
+              [value]="sentDisplay()"
+              trend="−4.1% vs last month"
+              trendDir="down"
+            />
+          </div>
+          <div style="flex: 1">
+            <app-stat-card
+              icon="send"
+              label="Total transfers"
+              [value]="totalTransfers()"
+              trend="3 this week"
+              trendDir="up"
+            />
+          </div>
+          <div style="flex: 1">
+            <app-stat-card
+              icon="wallet"
+              label="Active wallets"
+              [value]="wallets().length + ' / 3'"
+              trend="Up to 3 allowed"
+              trendDir="up"
+            />
+          </div>
+        </div>
+
+        <div class="row gap-4" style="align-items: stretch">
+          <div style="flex: 2">
+            <app-balance-chart [transactions]="transactions()" />
+          </div>
+          <div class="card" style="flex: 1; padding: 24px">
+            <div class="t-h3" style="margin-bottom: 16px">Quick actions</div>
+            <div class="col gap-2">
+              <button type="button" class="qa-btn" (click)="goTo('/transfer')">
+                <div class="qa-icon"><app-icon name="send" [size]="18" /></div>
+                <div>
+                  <div class="qa-title">Send money</div>
+                  <div class="qa-sub">Transfer by phone number</div>
+                </div>
+              </button>
+              <button type="button" class="qa-btn" (click)="goTo('/deposit')">
+                <div class="qa-icon"><app-icon name="arrow-down" [size]="18" /></div>
+                <div>
+                  <div class="qa-title">Deposit funds</div>
+                  <div class="qa-sub">From bank or card</div>
+                </div>
+              </button>
+              <button type="button" class="qa-btn" (click)="goTo('/wallets')">
+                <div class="qa-icon"><app-icon name="plus" [size]="18" /></div>
+                <div>
+                  <div class="qa-title">Open wallet</div>
+                  <div class="qa-sub">EGP or USD wallet</div>
+                </div>
+              </button>
             </div>
-            <div style="font-weight: 600; font-size: 14px">Open new wallet</div>
-            <div class="t-small">{{ remainingSlots() }} available</div>
-          </button>
-        }
-      </div>
-
-      <div class="row gap-4">
-        <div style="flex: 1">
-          <app-stat-card
-            icon="arrow-down"
-            label="Received this month"
-            [value]="receivedDisplay()"
-            trend="+18.2% vs last month"
-            trendDir="up"
-          />
-        </div>
-        <div style="flex: 1">
-          <app-stat-card
-            icon="arrow-up"
-            label="Sent this month"
-            [value]="sentDisplay()"
-            trend="−4.1% vs last month"
-            trendDir="down"
-          />
-        </div>
-        <div style="flex: 1">
-          <app-stat-card
-            icon="send"
-            label="Total transfers"
-            [value]="totalTransfers()"
-            trend="3 this week"
-            trendDir="up"
-          />
-        </div>
-        <div style="flex: 1">
-          <app-stat-card
-            icon="wallet"
-            label="Active wallets"
-            [value]="wallets().length + ' / 3'"
-            trend="Up to 3 allowed"
-            trendDir="up"
-          />
-        </div>
-      </div>
-
-      <div class="row gap-4" style="align-items: stretch">
-        <div style="flex: 2">
-          <app-balance-chart [seedTotal]="totalBalance()" />
-        </div>
-        <div class="card" style="flex: 1; padding: 24px">
-          <div class="t-h3" style="margin-bottom: 16px">Quick actions</div>
-          <div class="col gap-2">
-            <button type="button" class="qa-btn" (click)="goTo('/transfer')">
-              <div class="qa-icon"><app-icon name="send" [size]="18" /></div>
-              <div>
-                <div class="qa-title">Send money</div>
-                <div class="qa-sub">Transfer by phone number</div>
-              </div>
-            </button>
-            <button type="button" class="qa-btn" (click)="goTo('/deposit')">
-              <div class="qa-icon"><app-icon name="arrow-down" [size]="18" /></div>
-              <div>
-                <div class="qa-title">Deposit funds</div>
-                <div class="qa-sub">From bank or card</div>
-              </div>
-            </button>
-            <button type="button" class="qa-btn" (click)="goTo('/wallets')">
-              <div class="qa-icon"><app-icon name="plus" [size]="18" /></div>
-              <div>
-                <div class="qa-title">Open wallet</div>
-                <div class="qa-sub">EGP or USD wallet</div>
-              </div>
-            </button>
           </div>
         </div>
-      </div>
 
-      <div class="card">
-        <div
-          class="row between"
-          style="padding: 20px 24px; border-bottom: 1px solid var(--border)"
-        >
-          <div>
-            <div class="t-h3">Recent transactions</div>
-            <div class="t-small secondary">Across all your wallets</div>
+        <div class="card">
+          <div
+            class="row between"
+            style="padding: 20px 24px; border-bottom: 1px solid var(--border)"
+          >
+            <div>
+              <div class="t-h3">Recent transactions</div>
+              <div class="t-small secondary">Across all your wallets</div>
+            </div>
+            <button type="button" class="btn btn-ghost btn-sm" (click)="goTo('/history')">
+              View all <app-icon name="arrow-right" [size]="14" />
+            </button>
           </div>
-          <button type="button" class="btn btn-ghost btn-sm" (click)="goTo('/history')">
-            View all <app-icon name="arrow-right" [size]="14" />
-          </button>
+          <app-tx-table [rows]="recentTransactions()" (rowClick)="openTransaction($event)" />
         </div>
-        <app-tx-table [rows]="recentTransactions()" (rowClick)="openTransaction($event)" />
       </div>
-    </div>
+    }
   `,
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
@@ -156,11 +194,15 @@ export class DashboardComponent {
   private readonly state = inject(AppStateService);
   private readonly router = inject(Router);
 
+  protected readonly loadState = this.state.loadState;
   protected readonly user = this.state.user;
   protected readonly wallets = this.state.wallets;
   protected readonly transactions = this.state.transactions;
 
-  protected readonly firstName = computed(() => this.user().fullName.split(' ')[0]);
+  protected readonly firstName = computed(() => {
+    const name = this.user().fullName;
+    return name ? name.split(' ')[0] : 'there';
+  });
 
   protected readonly recentTransactions = computed(() => this.transactions().slice(0, 6));
 
@@ -190,6 +232,10 @@ export class DashboardComponent {
     const left = 3 - this.wallets().length;
     return left + (left === 1 ? ' slot' : ' slots');
   });
+
+  protected reload(): void {
+    void this.state.initialize();
+  }
 
   protected goTo(path: string): void {
     void this.router.navigateByUrl(path);

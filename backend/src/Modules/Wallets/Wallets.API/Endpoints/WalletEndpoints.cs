@@ -1,6 +1,8 @@
 using EWallet.Modules.Wallets.Application.Commands.CreateWallet;
 using EWallet.Modules.Wallets.Application.Commands.Deposit;
+using EWallet.Modules.Wallets.Application.DTOs;
 using EWallet.Modules.Wallets.Application.Queries.GetWalletById;
+using EWallet.Modules.Wallets.Application.Queries.GetWalletsByOwnerId;
 using MediatR;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
@@ -13,6 +15,17 @@ public static class WalletEndpoints
     public static IEndpointRouteBuilder MapWalletEndpoints(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/api/v1/wallets").WithTags("Wallets").RequireAuthorization();
+
+        group.MapGet("/", async (IMediator mediator, HttpContext context, CancellationToken ct) =>
+        {
+            var userId = context.User.GetUserId();
+            var result = await mediator.Send(new GetWalletsByOwnerIdQuery(userId), ct);
+            return result.IsSuccess
+                ? Results.Ok(result.Value)
+                : Results.BadRequest(new { result.Error.Code, result.Error.Description });
+        })
+        .WithName("GetMyWallets")
+        .Produces<IReadOnlyList<WalletDto>>(StatusCodes.Status200OK);
 
         group.MapPost("/", async (CreateWalletRequest request, IMediator mediator, HttpContext context, CancellationToken ct) =>
         {

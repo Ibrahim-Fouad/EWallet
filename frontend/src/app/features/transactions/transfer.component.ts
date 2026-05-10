@@ -415,6 +415,7 @@ export class TransferComponent {
             title: 'Transfer is being processed',
             body: `${fmtAmount(res.amount, res.currency)} will arrive shortly`,
           });
+          void this.state.refresh();
           void this.router.navigateByUrl('/history');
         },
         error: (err: unknown) => {

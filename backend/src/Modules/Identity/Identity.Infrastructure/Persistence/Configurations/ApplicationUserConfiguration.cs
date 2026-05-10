@@ -12,6 +12,11 @@ internal sealed class ApplicationUserConfiguration : IEntityTypeConfiguration<Ap
         builder.Property(u => u.IsSystem).HasDefaultValue(false);
         builder.Property(u => u.CreatedAt).HasDefaultValueSql("SYSDATETIMEOFFSET()");
 
+        // Fullname
+        builder.Property(u => u.FullName)
+            .IsRequired()
+            .HasMaxLength(100);
+        
         // NationalId — new custom column, required, unique
         builder.Property(u => u.NationalId)
             .IsRequired()
@@ -45,6 +50,7 @@ internal sealed class ApplicationUserConfiguration : IEntityTypeConfiguration<Ap
             ConcurrencyStamp   = "SYSTEM_CONCURRENCY_STAMP",
             NationalId         = "SYSTEM",
             PhoneNumber        = "SYSTEM",
+            FullName           = "SYSTEM",
         });
     }
 }
