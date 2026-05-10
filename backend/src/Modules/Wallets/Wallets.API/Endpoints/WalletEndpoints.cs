@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using EWallet.Modules.Wallets.Application.Commands.CreateWallet;
 using EWallet.Modules.Wallets.Application.Commands.Deposit;
 using EWallet.Modules.Wallets.Application.DTOs;
@@ -65,7 +66,10 @@ public static class WalletEndpoints
     }
 }
 
-public sealed record CreateWalletRequest(string PhoneNumber, EWallet.Modules.Wallets.Domain.Enums.Currency Currency);
+public sealed record CreateWalletRequest(string PhoneNumber,
+    [property: JsonConverter(typeof(JsonStringEnumConverter))]
+    Domain.Enums.Currency Currency);
+
 public sealed record DepositRequest(decimal Amount);
 
 internal static class ClaimsPrincipalExtensions

@@ -100,7 +100,9 @@ const CURRENCIES: CurrencyOption[] = [
 
       <div modal-footer class="modal-footer">
         <button type="button" class="btn btn-secondary" (click)="closeModal.emit()">Cancel</button>
-        <button type="button" class="btn btn-primary" (click)="submit()">Create wallet</button>
+        <button type="button" class="btn btn-primary" [disabled]="submitting()" (click)="submit()">
+          {{ submitting() ? 'Creating…' : 'Create wallet' }}
+        </button>
       </div>
     </app-modal>
   `,
@@ -117,6 +119,8 @@ export class CreateWalletModalComponent {
   protected readonly currencies = CURRENCIES;
   protected readonly currency = signal<'EGP' | 'USD'>('EGP');
   protected readonly submitted = signal(false);
+  protected readonly submitting = signal(false);
+  private readonly serverPhoneError = signal<string | null>(null);
 
   protected readonly form = this.fb.nonNullable.group({
     phone: ['', [Validators.required, Validators.pattern(/^01[0-9]{9}$/)]],
@@ -128,11 +132,15 @@ export class CreateWalletModalComponent {
         this.form.reset({ phone: '' });
         this.currency.set('EGP');
         this.submitted.set(false);
+        this.submitting.set(false);
+        this.serverPhoneError.set(null);
       }
     });
   }
 
   protected phoneError(): string | null {
+    const server = this.serverPhoneError();
+    if (server) return server;
     if (!this.submitted()) return null;
     const c = this.form.controls.phone;
     if (!c.errors) return null;
@@ -152,18 +160,55 @@ export class CreateWalletModalComponent {
       input.value = cleaned;
       this.form.controls.phone.setValue(cleaned);
     }
+    this.serverPhoneError.set(null);
   }
 
-  protected submit(): void {
+  protected async submit(): Promise<void> {
     this.submitted.set(true);
     if (this.form.invalid) return;
-    const { phone } = this.form.getRawValue();
-    const w = this.state.createWallet({ phone, currency: this.currency() });
-    this.state.pushToast({
-      kind: 'success',
-      title: 'Wallet created',
-      body: `${this.currency()} wallet · ${phone}`,
-    });
-    this.created.emit({ id: w.id });
+
+    this.submitting.set(true);
+    this.serverPhoneError.set(null);
+
+    try {
+      const { phone } = this.form.getRawValue();
+      const w = await this.state.createWallet({ phone, currency: this.currency() });
+      this.state.pushToast({
+        kind: 'success',
+        title: 'Wallet created',
+        body: `${this.currency()} wallet · ${phone}`,
+      });
+      this.created.emit({ id: w.id });
+    } catch (err: unknown) {
+      const code = this.extractErrorCode(err);
+      const description = this.extractErrorDescription(err);
+      if (code === 'Wallet.PhoneNumberAlreadyInUse') {
+        this.serverPhoneError.set('This phone number is already in use.');
+      } else {
+        this.state.pushToast({
+          kind: 'error',
+          title: 'Could not create wallet',
+          body: description ?? 'Please try again.',
+        });
+      }
+    } finally {
+      this.submitting.set(false);
+    }
+  }
+
+  private extractErrorCode(err: unknown): string | null {
+    if (err && typeof err === 'object' && 'error' in err) {
+      const body = (err as { error?: { Code?: string } }).error;
+      return body?.Code ?? null;
+    }
+    return null;
+  }
+
+  private extractErrorDescription(err: unknown): string | null {
+    if (err && typeof err === 'object' && 'error' in err) {
+      const body = (err as { error?: { Description?: string } }).error;
+      return body?.Description ?? null;
+    }
+    return null;
   }
 }

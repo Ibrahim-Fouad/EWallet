@@ -1,3 +1,10 @@
+export interface CreateWalletApiResponse {
+  walletId: string;
+  phoneNumber: string;
+  currency: string;
+  balance: number;
+}
+
 export interface TransferRequest {
   sourcePhoneNumber: string;
   destinationPhoneNumber: string;

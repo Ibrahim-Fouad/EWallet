@@ -207,16 +207,17 @@ export class AppStateService {
     );
   }
 
-  createWallet({ phone, currency }: { phone: string; currency: string }) {
-    const id = 'w' + (this.wallets().length + 1);
+  async createWallet({ phone, currency }: { phone: string; currency: 'EGP' | 'USD' }): Promise<InternalWallet> {
+    const dto = await firstValueFrom(this.walletService.createWallet({ phoneNumber: phone, currency }));
+    const idx = this.wallets().length;
     const w: InternalWallet = {
-      id,
-      phone,
-      currency,
-      balance: 0,
+      id: dto.walletId,
+      phone: dto.phoneNumber,
+      currency: dto.currency,
+      balance: dto.balance,
       status: 'active',
-      primary: false,
-      color: WALLET_COLORS[this.wallets().length % WALLET_COLORS.length],
+      primary: idx === 0,
+      color: WALLET_COLORS[idx % WALLET_COLORS.length],
       created: new Date().toISOString(),
     };
     this.wallets.update((ws) => [...ws, w]);
