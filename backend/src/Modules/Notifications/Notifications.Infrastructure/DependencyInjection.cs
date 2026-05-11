@@ -1,10 +1,14 @@
 using EWallet.Modules.Notifications.Application.Abstractions;
+using EWallet.Modules.Notifications.Application.Queries.GetNotificationHistory;
 using EWallet.Modules.Notifications.Infrastructure.Hubs;
 using EWallet.Modules.Notifications.Infrastructure.Jobs;
+using EWallet.Modules.Notifications.Infrastructure.Persistence;
+using EWallet.Modules.Notifications.Infrastructure.Persistence.Repositories;
 using EWallet.Modules.Notifications.Infrastructure.Services;
 using Hangfire;
 using Hangfire.SqlServer;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -18,6 +22,15 @@ public static class DependencyInjection
     {
         services.AddSignalR();
 
+        services.AddDbContext<NotificationsDbContext>(opts =>
+            opts.UseSqlServer(configuration.GetConnectionString("sqlserver")));
+
+        services.AddScoped<INotificationRepository, NotificationRepository>();
+        services.AddScoped<INotificationService, NotificationService>();
+
+        services.AddMediatR(cfg =>
+            cfg.RegisterServicesFromAssembly(typeof(GetNotificationHistoryQuery).Assembly));
+
         services.AddHangfire(cfg =>
             cfg.UseSqlServerStorage(
                 configuration.GetConnectionString("sqlserver"),
@@ -28,8 +41,6 @@ public static class DependencyInjection
                 }));
 
         services.AddHangfireServer();
-
-        services.AddScoped<INotificationService, NotificationService>();
         services.AddScoped<ReconciliationJob>();
 
         return services;
@@ -39,7 +50,6 @@ public static class DependencyInjection
     {
         app.UseHangfireDashboard("/hangfire", new DashboardOptions
         {
-            // Dashboard is restricted to authenticated users only — no anonymous access
             Authorization = [new HangfireAuthorizationFilter()]
         });
 

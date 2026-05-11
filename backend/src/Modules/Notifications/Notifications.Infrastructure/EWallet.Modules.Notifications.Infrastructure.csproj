@@ -7,6 +7,11 @@
     <PackageReference Include="Hangfire.SqlServer" />
     <PackageReference Include="Hangfire.AspNetCore" />
     <PackageReference Include="Microsoft.Data.SqlClient" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
+    </PackageReference>
     <ProjectReference Include="../Notifications.Application/EWallet.Modules.Notifications.Application.csproj" />
     <ProjectReference Include="../../Wallets/Wallets.Application/EWallet.Modules.Wallets.Application.csproj" />
     <ProjectReference Include="../../../BuildingBlocks/EWallet.BuildingBlocks.csproj" />

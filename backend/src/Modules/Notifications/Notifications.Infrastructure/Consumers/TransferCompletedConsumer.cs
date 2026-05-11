@@ -50,6 +50,7 @@ public sealed class TransferCompletedConsumer(
             msg.TransactionId,
             msg.Amount,
             msg.Currency,
+            sourceWallet.Id,
             sourceWallet.PhoneNumber,
             ct);
 

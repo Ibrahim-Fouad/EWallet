@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 
 import {
   AppStateService,
@@ -20,14 +20,14 @@ const KIND_ICON: Record<NotificationKind, IconName> = {
   selector: 'app-notifications',
   imports: [IconComponent, EmptyStateComponent],
   template: `
-    @if (notifications().length === 0) {
+    @if (notifications().length === 0 && !loadingMore()) {
       <div class="page">
         <h2 class="t-h1">Notifications</h2>
         <div class="card">
           <app-empty-state
             icon="bell"
             title="You're all caught up"
-            body="When you receive transfers or your wallets change, you'll see alerts here in real time."
+            body="When you receive transfers or your wallets change, you'll see alerts here."
           />
         </div>
       </div>
@@ -50,7 +50,7 @@ const KIND_ICON: Record<NotificationKind, IconName> = {
               }
             </h2>
             <p class="row gap-2 secondary t-small" style="margin-top: 6px">
-              <span class="live-dot"></span> Real-time alerts via SignalR
+              <span class="live-dot"></span> Connected live — history persists across sessions
             </p>
           </div>
           @if (unread() > 0) {
@@ -87,6 +87,18 @@ const KIND_ICON: Record<NotificationKind, IconName> = {
               </div>
             </div>
           }
+          @if (hasMore()) {
+            <div style="padding: 16px; text-align: center">
+              <button
+                type="button"
+                class="btn btn-secondary"
+                [disabled]="loadingMore()"
+                (click)="loadMore()"
+              >
+                @if (loadingMore()) { Loading… } @else { Load more }
+              </button>
+            </div>
+          }
         </div>
       </div>
     }
@@ -98,6 +110,8 @@ export class NotificationsComponent {
 
   protected readonly notifications = this.state.notifications;
   protected readonly unread = this.state.unreadCount;
+  protected readonly hasMore = this.state.notificationsHasMore;
+  protected readonly loadingMore = this.state.notificationsLoading;
 
   protected iconFor(kind: AppNotification['kind']): IconName {
     return KIND_ICON[kind];
@@ -109,6 +123,10 @@ export class NotificationsComponent {
 
   protected markRead(id: string): void {
     this.state.markRead(id);
+  }
+
+  protected async loadMore(): Promise<void> {
+    await this.state.loadMoreNotifications();
   }
 
   protected formatTime(iso: string): string {

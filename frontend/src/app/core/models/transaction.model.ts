@@ -43,6 +43,7 @@ export interface TransactionDto {
 }
 
 export interface TransferReceivedPayload {
+  notificationId: string;
   transactionId: string;
   amount: number;
   currency: string;
@@ -51,6 +52,7 @@ export interface TransferReceivedPayload {
 }
 
 export interface TransactionCompletedPayload {
+  notificationId: string;
   transactionId: string;
   amount: number;
   currency: string;
@@ -58,6 +60,7 @@ export interface TransactionCompletedPayload {
 }
 
 export interface TransactionFailedPayload {
+  notificationId: string;
   transactionId: string;
   failureReason: string;
 }
@@ -67,4 +70,23 @@ export interface PagedResult<T> {
   page: number;
   pageSize: number;
   totalCount: number;
+}
+
+export type BackendNotificationType =
+  | 'TransferReceived'
+  | 'TransactionCompleted'
+  | 'TransactionFailed';
+
+export interface NotificationDto {
+  id: string;
+  type: BackendNotificationType;
+  transactionId: string;
+  amount: number | null;
+  currency: string | null;
+  senderPhoneNumber: string | null;
+  failureReason: string | null;
+  completedAt: string | null;
+  receivedAt: string | null;
+  isRead: boolean;
+  createdAt: string;
 }

@@ -2,6 +2,7 @@ import { Injectable, computed, effect, inject, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 
 import {
+  NotificationDto,
   TransactionCompletedPayload,
   TransactionDto,
   TransactionFailedPayload,
@@ -13,6 +14,7 @@ import { AuthService } from './auth.service';
 import { WalletService } from './wallet.service';
 import { TransactionService } from './transaction.service';
 import { SignalRService } from './signalr.service';
+import { NotificationService } from './notification.service';
 
 export interface User {
   id: string;
@@ -121,6 +123,7 @@ export class AppStateService {
   private readonly walletService = inject(WalletService);
   private readonly txService = inject(TransactionService);
   private readonly signalr = inject(SignalRService);
+  private readonly notificationService = inject(NotificationService);
 
   readonly loadState = signal<'idle' | 'loading' | 'loaded' | 'error'>('idle');
 
@@ -138,9 +141,11 @@ export class AppStateService {
   readonly notifications = signal<AppNotification[]>([]);
   readonly toasts = signal<Toast[]>([]);
 
-  readonly unreadCount = computed(
-    () => this.notifications().filter((n) => !n.read).length
-  );
+  readonly notificationsHasMore = signal(false);
+  readonly notificationsLoading = signal(false);
+  private readonly notificationsPage = signal(0);
+
+  readonly unreadCount = computed(() => this.notifications().filter((n) => !n.read).length);
 
   async initialize(): Promise<void> {
     if (this.loadState() === 'loading' || this.loadState() === 'loaded') return;
@@ -165,14 +170,16 @@ export class AppStateService {
       const allTxArrays = await Promise.all(
         internalWallets.map((w) =>
           firstValueFrom(this.txService.getHistory(w.phone, 1, 50)).then((paged) =>
-            this.mapTransactions(paged.items, w)
-          )
-        )
+            this.mapTransactions(paged.items, w),
+          ),
+        ),
       );
       const allTx = allTxArrays
         .flat()
         .sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime());
       this.transactions.set(allTx);
+
+      await this.loadNotificationsPage(1, true);
 
       this.loadState.set('loaded');
 
@@ -199,16 +206,35 @@ export class AppStateService {
 
   markAllRead(): void {
     this.notifications.update((ns) => ns.map((n) => ({ ...n, read: true })));
+    firstValueFrom(this.notificationService.markAllAsRead()).catch(() => {
+      // non-fatal: server state corrected on next login
+    });
   }
 
   markRead(id: string): void {
-    this.notifications.update((ns) =>
-      ns.map((n) => (n.id === id ? { ...n, read: true } : n))
-    );
+    const n = this.notifications().find((x) => x.id === id);
+    if (!n || n.read) return;
+    this.notifications.update((ns) => ns.map((n) => (n.id === id ? { ...n, read: true } : n)));
+    firstValueFrom(this.notificationService.markAsRead(id)).catch(() => {
+      this.notifications.update((ns) => ns.map((n) => (n.id === id ? { ...n, read: false } : n)));
+    });
   }
 
-  async createWallet({ phone, currency }: { phone: string; currency: 'EGP' | 'USD' }): Promise<InternalWallet> {
-    const dto = await firstValueFrom(this.walletService.createWallet({ phoneNumber: phone, currency }));
+  async loadMoreNotifications(): Promise<void> {
+    if (!this.notificationsHasMore() || this.notificationsLoading()) return;
+    await this.loadNotificationsPage(this.notificationsPage() + 1, false);
+  }
+
+  async createWallet({
+    phone,
+    currency,
+  }: {
+    phone: string;
+    currency: 'EGP' | 'USD';
+  }): Promise<InternalWallet> {
+    const dto = await firstValueFrom(
+      this.walletService.createWallet({ phoneNumber: phone, currency }),
+    );
     const idx = this.wallets().length;
     const w: InternalWallet = {
       id: dto.walletId,
@@ -228,7 +254,7 @@ export class AppStateService {
     const w = this.wallets().find((x) => x.id === walletId);
     if (!w) return { ok: false as const, reason: 'Wallet not found' };
     this.wallets.update((ws) =>
-      ws.map((x) => (x.id === walletId ? { ...x, balance: x.balance + amount } : x))
+      ws.map((x) => (x.id === walletId ? { ...x, balance: x.balance + amount } : x)),
     );
     const tx: Transaction = {
       id: 'tx_' + Math.floor(9000 + Math.random() * 999),
@@ -259,7 +285,7 @@ export class AppStateService {
     if (amount > w.balance) return { ok: false as const, reason: 'Insufficient balance' };
     const counterName = COUNTERPARTS.find((c) => c.phone === toPhone)?.name ?? 'Recipient';
     this.wallets.update((ws) =>
-      ws.map((x) => (x.id === fromWalletId ? { ...x, balance: x.balance - amount } : x))
+      ws.map((x) => (x.id === fromWalletId ? { ...x, balance: x.balance - amount } : x)),
     );
     const tx: Transaction = {
       id: 'tx_' + Math.floor(9000 + Math.random() * 999),
@@ -291,7 +317,8 @@ export class AppStateService {
       type: 'out',
       walletId: wallet?.id ?? '',
       counter: data.destinationPhone,
-      counterName: COUNTERPARTS.find((c) => c.phone === data.destinationPhone)?.name ?? data.destinationPhone,
+      counterName:
+        COUNTERPARTS.find((c) => c.phone === data.destinationPhone)?.name ?? data.destinationPhone,
       amount: data.amount,
       currency: data.currency,
       status: 'pending',
@@ -307,7 +334,7 @@ export class AppStateService {
     const w = ws[0];
     const amount = Math.floor(50 + Math.random() * 500);
     this.wallets.update((list) =>
-      list.map((x) => (x.id === w.id ? { ...x, balance: x.balance + amount } : x))
+      list.map((x) => (x.id === w.id ? { ...x, balance: x.balance + amount } : x)),
     );
     const tx: Transaction = {
       id: 'tx_' + Math.floor(9000 + Math.random() * 999),
@@ -339,6 +366,23 @@ export class AppStateService {
     });
   }
 
+  private async loadNotificationsPage(page: number, reset: boolean): Promise<void> {
+    this.notificationsLoading.set(true);
+    try {
+      const paged = await firstValueFrom(this.notificationService.getHistory(page, 50));
+      const mapped = paged.items.map((dto) => this.mapNotificationDto(dto));
+      if (reset) {
+        this.notifications.set(mapped);
+      } else {
+        this.notifications.update((ns) => [...ns, ...mapped]);
+      }
+      this.notificationsPage.set(page);
+      this.notificationsHasMore.set(paged.totalCount > page * paged.pageSize);
+    } finally {
+      this.notificationsLoading.set(false);
+    }
+  }
+
   private async connectSignalR(): Promise<void> {
     try {
       await this.signalr.connect();
@@ -357,7 +401,7 @@ export class AppStateService {
     if (!wallet) return;
 
     this.wallets.update((ws) =>
-      ws.map((w) => (w.id === wallet.id ? { ...w, balance: w.balance + payload.amount } : w))
+      ws.map((w) => (w.id === wallet.id ? { ...w, balance: w.balance + payload.amount } : w)),
     );
 
     const tx: Transaction = {
@@ -365,7 +409,9 @@ export class AppStateService {
       type: 'in',
       walletId: wallet.id,
       counter: payload.senderPhoneNumber,
-      counterName: COUNTERPARTS.find((c) => c.phone === payload.senderPhoneNumber)?.name ?? payload.senderPhoneNumber,
+      counterName:
+        COUNTERPARTS.find((c) => c.phone === payload.senderPhoneNumber)?.name ??
+        payload.senderPhoneNumber,
       amount: payload.amount,
       currency: payload.currency,
       status: 'completed',
@@ -377,17 +423,20 @@ export class AppStateService {
       return exists ? ts : [tx, ...ts];
     });
 
-    this.notifications.update((ns) => [
-      {
-        id: 'n_' + Math.random().toString(36).slice(2, 6),
-        kind: 'received',
-        title: `You received ${fmtAmount(payload.amount, payload.currency)}`,
-        body: `From ${payload.senderPhoneNumber}`,
-        at: payload.receivedAt,
-        read: false,
-      },
-      ...ns,
-    ]);
+    this.notifications.update((ns) => {
+      if (ns.some((n) => n.id === payload.notificationId)) return ns;
+      return [
+        {
+          id: payload.notificationId,
+          kind: 'received' as NotificationKind,
+          title: `You received ${fmtAmount(payload.amount, payload.currency)}`,
+          body: `From ${payload.senderPhoneNumber}`,
+          at: payload.receivedAt,
+          read: false,
+        },
+        ...ns,
+      ];
+    });
 
     this.pushToast({
       kind: 'received',
@@ -399,14 +448,14 @@ export class AppStateService {
   private handleTransactionCompleted(payload: TransactionCompletedPayload): void {
     this.transactions.update((ts) =>
       ts.map((t) =>
-        t.id === payload.transactionId ? { ...t, status: 'completed' as TransactionStatus } : t
-      )
+        t.id === payload.transactionId ? { ...t, status: 'completed' as TransactionStatus } : t,
+      ),
     );
 
     // Refresh wallets to show the post-debit balance from the backend
     void firstValueFrom(this.walletService.getMyWallets()).then((dtos) => {
       this.wallets.update((ws) =>
-        ws.map((w, i) => ({ ...w, balance: dtos[i]?.balance ?? w.balance }))
+        ws.map((w, i) => ({ ...w, balance: dtos[i]?.balance ?? w.balance })),
       );
     });
 
@@ -416,17 +465,20 @@ export class AppStateService {
       body: `${fmtAmount(payload.amount, payload.currency)} sent successfully`,
     });
 
-    this.notifications.update((ns) => [
-      {
-        id: 'n_' + Math.random().toString(36).slice(2, 6),
-        kind: 'completed',
-        title: 'Transfer completed',
-        body: `${fmtAmount(payload.amount, payload.currency)} delivered`,
-        at: payload.completedAt,
-        read: false,
-      },
-      ...ns,
-    ]);
+    this.notifications.update((ns) => {
+      if (ns.some((n) => n.id === payload.notificationId)) return ns;
+      return [
+        {
+          id: payload.notificationId,
+          kind: 'completed' as NotificationKind,
+          title: 'Transfer completed',
+          body: `${fmtAmount(payload.amount, payload.currency)} delivered`,
+          at: payload.completedAt,
+          read: false,
+        },
+        ...ns,
+      ];
+    });
   }
 
   private handleTransactionFailed(payload: TransactionFailedPayload): void {
@@ -437,16 +489,14 @@ export class AppStateService {
       ts.map((t) =>
         t.id === payload.transactionId
           ? { ...t, status: 'failed' as TransactionStatus, failReason: payload.failureReason }
-          : t
-      )
+          : t,
+      ),
     );
 
     // Restore optimistically deducted balance
     if (tx) {
       this.wallets.update((ws) =>
-        ws.map((w) =>
-          w.id === tx.walletId ? { ...w, balance: w.balance + tx.amount } : w
-        )
+        ws.map((w) => (w.id === tx.walletId ? { ...w, balance: w.balance + tx.amount } : w)),
       );
     }
 
@@ -456,17 +506,52 @@ export class AppStateService {
       body: payload.failureReason,
     });
 
-    this.notifications.update((ns) => [
-      {
-        id: 'n_' + Math.random().toString(36).slice(2, 6),
-        kind: 'failed',
-        title: 'Transfer failed',
-        body: payload.failureReason,
-        at: new Date().toISOString(),
-        read: false,
-      },
-      ...ns,
-    ]);
+    this.notifications.update((ns) => {
+      if (ns.some((n) => n.id === payload.notificationId)) return ns;
+      return [
+        {
+          id: payload.notificationId,
+          kind: 'failed' as NotificationKind,
+          title: 'Transfer failed',
+          body: payload.failureReason,
+          at: new Date().toISOString(),
+          read: false,
+        },
+        ...ns,
+      ];
+    });
+  }
+
+  private mapNotificationDto(dto: NotificationDto): AppNotification {
+    switch (dto.type) {
+      case 'TransferReceived':
+        return {
+          id: dto.id,
+          kind: 'received',
+          title: `You received ${fmtAmount(dto.amount!, dto.currency!)}`,
+          body: `From ${dto.senderPhoneNumber}`,
+          at: dto.receivedAt ?? dto.createdAt,
+          read: dto.isRead,
+        };
+      case 'TransactionCompleted':
+        return {
+          id: dto.id,
+          kind: 'completed',
+          title: 'Transfer completed',
+          body: `${fmtAmount(dto.amount!, dto.currency!)} delivered`,
+          at: dto.completedAt ?? dto.createdAt,
+          read: dto.isRead,
+        };
+      case 'TransactionFailed':
+        return {
+          id: dto.id,
+          kind: 'failed',
+          title: 'Transfer failed',
+          body: dto.failureReason ?? 'Unknown reason',
+          at: dto.createdAt,
+          read: dto.isRead,
+        };
+    }
   }
 
   private mapWalletDto(dto: WalletDto, index: number): InternalWallet {
@@ -491,7 +576,7 @@ export class AppStateService {
       const counterPhone = isDeposit
         ? 'Bank transfer'
         : isInbound
-          ? (dto.sourcePhoneNumber || dto.destinationPhoneNumber)
+          ? dto.sourcePhoneNumber || dto.destinationPhoneNumber
           : dto.destinationPhoneNumber;
       return {
         id: dto.id,

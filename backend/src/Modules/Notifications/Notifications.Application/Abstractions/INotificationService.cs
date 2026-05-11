@@ -7,6 +7,7 @@ public interface INotificationService
         Guid transactionId,
         decimal amount,
         string currency,
+        Guid sourceWalletId,
         string senderPhoneNumber,
         CancellationToken cancellationToken = default);
 
