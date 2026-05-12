@@ -8,7 +8,9 @@ public sealed record TransferCommand(
     string DestinationPhoneNumber,
     decimal Amount,
     Guid RequestingUserId,
-    string? Notes = null) : ICommand<TransferResponse>;
+    string? Notes = null,
+    string? DestinationDisplayOverride = null,
+    string? DescriptionOverride = null) : ICommand<TransferResponse>;
 
 public sealed record TransferResponse(
     Guid TransactionId,

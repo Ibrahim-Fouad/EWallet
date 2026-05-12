@@ -63,7 +63,12 @@ internal sealed class TransferCommandHandler(
             return Result.Failure<TransferResponse>(TransactionErrors.CurrencyMismatch);
 
         // 6 — Create Transaction in Pending state
-        var description = $"transfer {request.Amount} from {DisplayName(sourceInfo.Value.PhoneNumber)} to {DisplayName(destInfo.Value.PhoneNumber)}";
+        var description = request.DescriptionOverride
+            ?? $"transfer {request.Amount} from {DisplayName(sourceInfo.Value.PhoneNumber)} to {DisplayName(destInfo.Value.PhoneNumber)}";
+
+        var destinationDisplay = request.DestinationDisplayOverride
+            ?? destInfo.Value.PhoneNumber;
+
         var transaction = Transaction.Create(
             request.IdempotencyKey,
             sourceInfo.Value.Id,
@@ -71,7 +76,7 @@ internal sealed class TransferCommandHandler(
             request.Amount,
             sourceInfo.Value.Currency,
             description,
-            destInfo.Value.PhoneNumber,
+            destinationDisplay,
             request.Notes);
 
         transactionRepository.Add(transaction);

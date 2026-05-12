@@ -12,6 +12,7 @@ namespace EWallet.Modules.Merchants.Application.Commands.ApprovePaymentRequest;
 
 internal sealed class ApprovePaymentRequestCommandHandler(
     IPaymentRequestRepository paymentRequestRepository,
+    IMerchantRepository merchantRepository,
     IWalletLookupService walletLookupService,
     IMerchantUnitOfWork unitOfWork,
     IMediator mediator)
@@ -53,13 +54,22 @@ internal sealed class ApprovePaymentRequestCommandHandler(
             return Result.Failure<ApprovePaymentRequestResponse>(
                 Error.NotFound("Merchant.MerchantWalletNotFound", "Merchant wallet not found."));
 
+        var merchant = await merchantRepository.GetByIdAsync(paymentRequest.MerchantId, cancellationToken);
+        if (merchant is null)
+            return Result.Failure<ApprovePaymentRequestResponse>(MerchantErrors.NotFound);
+
+        var amountLabel = $"{paymentRequest.Amount:0.##} {paymentRequest.Currency}";
+        var description = $"Pay {amountLabel} at {merchant.BusinessName}";
+
         var transferCommand = new TransferCommand(
             IdempotencyKey: paymentRequest.Id.ToString(),
             SourcePhoneNumber: customerWallet.PhoneNumber,
             DestinationPhoneNumber: merchantWalletResult.Value.PhoneNumber,
             Amount: paymentRequest.Amount,
             RequestingUserId: request.RequestingUserId,
-            Notes: $"Merchant payment {paymentRequest.Id}");
+            Notes: description,
+            DestinationDisplayOverride: "Merchant Payment",
+            DescriptionOverride: description);
 
         var transferResult = await mediator.Send(transferCommand, cancellationToken);
         if (transferResult.IsFailure)
