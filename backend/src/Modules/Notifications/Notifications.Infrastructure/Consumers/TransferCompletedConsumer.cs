@@ -1,3 +1,4 @@
+using EWallet.BuildingBlocks.Common;
 using EWallet.BuildingBlocks.Infrastructure.Contracts;
 using EWallet.Modules.Notifications.Application.Abstractions;
 using MassTransit;
@@ -15,6 +16,9 @@ public sealed class TransferCompletedConsumer(
     {
         var msg = context.Message;
         var ct = context.CancellationToken;
+
+        // Merchant-payment transfers get their own interactive notification — suppress default ones
+        if (msg.Origin == TransferOrigin.MerchantPayment) return;
 
         var sourceWalletResult = await walletLookupService.GetByIdAsync(msg.SourceWalletId, ct);
         if (sourceWalletResult.IsFailure)

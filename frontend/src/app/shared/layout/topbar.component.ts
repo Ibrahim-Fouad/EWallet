@@ -20,6 +20,7 @@ const NOTIF_ICON: Record<NotificationKind, IconName> = {
   completed: 'check',
   deposit: 'plus',
   failed: 'x',
+  'payment-request': 'mail',
 };
 
 @Component({

@@ -4,6 +4,8 @@ import { Subject } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { AuthService } from './auth.service';
 import {
+  PaymentRequestCreatedPayload,
+  PaymentRequestUpdatedPayload,
   TransactionCompletedPayload,
   TransactionFailedPayload,
   TransferReceivedPayload,
@@ -18,6 +20,9 @@ export class SignalRService {
   readonly transferReceived$ = new Subject<TransferReceivedPayload>();
   readonly transactionCompleted$ = new Subject<TransactionCompletedPayload>();
   readonly transactionFailed$ = new Subject<TransactionFailedPayload>();
+  readonly paymentRequestCreated$ = new Subject<PaymentRequestCreatedPayload>();
+  readonly paymentRequestUpdated$ = new Subject<PaymentRequestUpdatedPayload>();
+  readonly reconnected$ = new Subject<void>();
 
   async connect(): Promise<void> {
     if (this.connection?.state === signalR.HubConnectionState.Connected) return;
@@ -41,6 +46,18 @@ export class SignalRService {
 
     this.connection.on('TransactionFailed', (payload: TransactionFailedPayload) => {
       this.transactionFailed$.next(payload);
+    });
+
+    this.connection.on('PaymentRequestCreated', (payload: PaymentRequestCreatedPayload) => {
+      this.paymentRequestCreated$.next(payload);
+    });
+
+    this.connection.on('PaymentRequestUpdated', (payload: PaymentRequestUpdatedPayload) => {
+      this.paymentRequestUpdated$.next(payload);
+    });
+
+    this.connection.onreconnected(() => {
+      this.reconnected$.next();
     });
 
     await this.connection.start();

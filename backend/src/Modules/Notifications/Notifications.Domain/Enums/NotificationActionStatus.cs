@@ -3,10 +3,12 @@ using System.Text.Json.Serialization;
 namespace EWallet.Modules.Notifications.Domain.Enums;
 
 [JsonConverter(typeof(JsonStringEnumConverter))]
-public enum NotificationType
+public enum NotificationActionStatus
 {
-    TransferReceived,
-    TransactionCompleted,
-    TransactionFailed,
-    PaymentRequestCreated
+    Pending,
+    Approved,
+    Rejected,
+    Expired,
+    Completed,
+    Failed
 }

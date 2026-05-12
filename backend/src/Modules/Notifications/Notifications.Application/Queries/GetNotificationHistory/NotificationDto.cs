@@ -5,7 +5,7 @@ namespace EWallet.Modules.Notifications.Application.Queries.GetNotificationHisto
 public sealed record NotificationDto(
     Guid Id,
     NotificationType Type,
-    Guid TransactionId,
+    Guid? TransactionId,
     decimal? Amount,
     string? Currency,
     string? SenderPhoneNumber,
@@ -13,4 +13,9 @@ public sealed record NotificationDto(
     DateTimeOffset? CompletedAt,
     DateTimeOffset? ReceivedAt,
     bool IsRead,
-    DateTimeOffset CreatedAt);
+    DateTimeOffset CreatedAt,
+    Guid? PaymentRequestId,
+    string? MerchantName,
+    string? ActionStatus,
+    DateTimeOffset? ActionTakenAt,
+    DateTimeOffset? ExpiresAt);

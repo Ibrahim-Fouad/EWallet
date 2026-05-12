@@ -1,14 +1,19 @@
+using EWallet.BuildingBlocks.Common;
 using EWallet.Modules.Notifications.Application.Abstractions;
 using EWallet.Modules.Notifications.Domain.Entities;
+using EWallet.Modules.Notifications.Domain.Enums;
 using EWallet.Modules.Notifications.Infrastructure.Hubs;
 using EWallet.Modules.Notifications.Infrastructure.Persistence;
 using Microsoft.AspNetCore.SignalR;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace EWallet.Modules.Notifications.Infrastructure.Services;
 
 internal sealed class NotificationService(
     IHubContext<NotificationsHub> hubContext,
-    INotificationRepository notificationRepository) : INotificationService
+    INotificationRepository notificationRepository,
+    ILogger<NotificationService> logger) : INotificationService
 {
     public async Task SendTransferReceivedAsync(
         Guid recipientUserId,
@@ -85,39 +90,127 @@ internal sealed class NotificationService(
             }, cancellationToken);
     }
 
-    public async Task SendPaymentRequestCreatedAsync(
+    public async Task<Result<Guid>> SendPaymentRequestCreatedAsync(
         Guid customerUserId,
         Guid paymentRequestId,
-        string merchantBusinessName,
+        string merchantName,
         decimal amount,
         string currency,
         DateTimeOffset expiresAt,
         CancellationToken cancellationToken = default)
     {
-        await hubContext.Clients
-            .Group(customerUserId.ToString())
-            .SendAsync("PaymentRequestCreated", new
-            {
-                PaymentRequestId = paymentRequestId,
-                MerchantBusinessName = merchantBusinessName,
-                Amount = amount,
-                Currency = currency,
-                ExpiresAt = expiresAt
-            }, cancellationToken);
+        // Idempotent — return existing row if already created (safe for retries)
+        var existing = await notificationRepository.GetByPaymentRequestIdAsync(paymentRequestId, cancellationToken);
+        if (existing is not null)
+            return Result.Success(existing.Id);
+
+        var notification = Notification.PaymentRequestCreated(
+            customerUserId, paymentRequestId, merchantName, amount, currency, expiresAt);
+
+        await notificationRepository.AddAsync(notification, cancellationToken);
+        await notificationRepository.SaveChangesAsync(cancellationToken);
+
+        logger.LogInformation(
+            "Notifications.PaymentRequest.Created {PaymentRequestId} {CustomerUserId}",
+            paymentRequestId, customerUserId);
+
+        try
+        {
+            await hubContext.Clients
+                .Group(customerUserId.ToString())
+                .SendAsync("PaymentRequestCreated", new
+                {
+                    NotificationId = notification.Id,
+                    PaymentRequestId = paymentRequestId,
+                    MerchantName = merchantName,
+                    Amount = amount,
+                    Currency = currency,
+                    ExpiresAt = expiresAt,
+                    ActionStatus = "Pending",
+                    CreatedAt = notification.CreatedAt
+                }, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex,
+                "Notifications.PaymentRequest.SignalRSendFailed {NotificationId}",
+                notification.Id);
+        }
+
+        return Result.Success(notification.Id);
     }
 
-    public async Task SendPaymentRequestResolvedAsync(
-        Guid customerUserId,
+    public async Task<Result> UpdatePaymentRequestStatusAsync(
         Guid paymentRequestId,
-        string status,
+        NotificationActionStatus newStatus,
+        Guid? transactionId,
+        DateTimeOffset takenAt,
         CancellationToken cancellationToken = default)
     {
-        await hubContext.Clients
-            .Group(customerUserId.ToString())
-            .SendAsync("PaymentRequestResolved", new
+        const int maxRetries = 3;
+
+        for (var attempt = 0; attempt < maxRetries; attempt++)
+        {
+            var notification = await notificationRepository.GetByPaymentRequestIdAsync(
+                paymentRequestId, cancellationToken);
+
+            if (notification is null)
             {
-                PaymentRequestId = paymentRequestId,
-                Status = status
-            }, cancellationToken);
+                logger.LogWarning(
+                    "Notifications.PaymentRequest.RowMissing {PaymentRequestId}", paymentRequestId);
+                return Result.Success();
+            }
+
+            var fromStatus = notification.ActionStatus;
+            var outcome = notification.TryUpdatePaymentRequestStatus(newStatus, takenAt, transactionId);
+
+            if (outcome == NotificationUpdateOutcome.NoChange)
+                return Result.Success();
+
+            if (outcome == NotificationUpdateOutcome.InvalidTransition)
+            {
+                logger.LogWarning(
+                    "Notifications.PaymentRequest.UpdateInvalidTransition {PaymentRequestId} from {FromStatus} attempted {NewStatus}",
+                    paymentRequestId, fromStatus, newStatus);
+                return Result.Success();
+            }
+
+            try
+            {
+                await notificationRepository.SaveChangesAsync(cancellationToken);
+
+                logger.LogInformation(
+                    "Notifications.PaymentRequest.UpdateApplied {PaymentRequestId} {FromStatus} -> {ToStatus}",
+                    paymentRequestId, fromStatus, newStatus);
+
+                try
+                {
+                    await hubContext.Clients
+                        .Group(notification.UserId.ToString())
+                        .SendAsync("PaymentRequestUpdated", new
+                        {
+                            NotificationId = notification.Id,
+                            PaymentRequestId = paymentRequestId,
+                            ActionStatus = newStatus.ToString(),
+                            ActionTakenAt = takenAt,
+                            TransactionId = transactionId
+                        }, cancellationToken);
+                }
+                catch (Exception ex)
+                {
+                    logger.LogError(ex,
+                        "Notifications.PaymentRequest.SignalRSendFailed {NotificationId}",
+                        notification.Id);
+                }
+
+                return Result.Success();
+            }
+            catch (DbUpdateConcurrencyException) when (attempt < maxRetries - 1)
+            {
+                // Reload and retry
+            }
+        }
+
+        return Result.Success();
     }
 }

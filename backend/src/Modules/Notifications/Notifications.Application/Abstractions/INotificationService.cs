@@ -1,3 +1,6 @@
+using EWallet.BuildingBlocks.Common;
+using EWallet.Modules.Notifications.Domain.Enums;
+
 namespace EWallet.Modules.Notifications.Application.Abstractions;
 
 public interface INotificationService
@@ -25,18 +28,19 @@ public interface INotificationService
         string failureReason,
         CancellationToken cancellationToken = default);
 
-    Task SendPaymentRequestCreatedAsync(
+    Task<Result<Guid>> SendPaymentRequestCreatedAsync(
         Guid customerUserId,
         Guid paymentRequestId,
-        string merchantBusinessName,
+        string merchantName,
         decimal amount,
         string currency,
         DateTimeOffset expiresAt,
         CancellationToken cancellationToken = default);
 
-    Task SendPaymentRequestResolvedAsync(
-        Guid customerUserId,
+    Task<Result> UpdatePaymentRequestStatusAsync(
         Guid paymentRequestId,
-        string status,
+        NotificationActionStatus newStatus,
+        Guid? transactionId,
+        DateTimeOffset takenAt,
         CancellationToken cancellationToken = default);
 }

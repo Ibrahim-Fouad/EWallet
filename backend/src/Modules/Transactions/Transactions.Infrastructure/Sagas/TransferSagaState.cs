@@ -22,4 +22,7 @@ public sealed class TransferSagaState : SagaStateMachineInstance
 
     /// <summary>Populated when a failure event is received; used by compensation activities.</summary>
     public string? FailureReason { get; set; }
+
+    /// <summary>Nullable for in-flight saga instances at deploy time; treated as Direct when null.</summary>
+    public string? Origin { get; set; }
 }

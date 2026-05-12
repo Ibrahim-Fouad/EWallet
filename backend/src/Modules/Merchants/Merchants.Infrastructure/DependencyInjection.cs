@@ -5,6 +5,8 @@ using EWallet.Modules.Merchants.Infrastructure.Jobs;
 using EWallet.Modules.Merchants.Infrastructure.Persistence;
 using EWallet.Modules.Merchants.Infrastructure.Persistence.Repositories;
 using EWallet.Modules.Merchants.Infrastructure.Services;
+using Hangfire;
+using Microsoft.AspNetCore.Builder;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -32,12 +34,22 @@ public static class DependencyInjection
 
         services.AddScoped<ExpirePaymentRequestJob>();
         services.AddScoped<DispatchWebhookJob>();
+        services.AddScoped<BackfillMissingPaymentRequestNotificationsJob>();
 
         services.AddHttpClient("webhook");
 
         services.AddDataProtection();
 
         return services;
+    }
+
+    public static void UseMerchantsModule(this IApplicationBuilder _)
+    {
+        RecurringJob.AddOrUpdate<BackfillMissingPaymentRequestNotificationsJob>(
+            "merchants-backfill-payment-request-notifications",
+            job => job.RunAsync(),
+            Cron.Minutely,
+            new RecurringJobOptions { TimeZone = TimeZoneInfo.Utc });
     }
 
     public static async Task MigrateMerchantsDatabaseAsync(IServiceProvider serviceProvider)

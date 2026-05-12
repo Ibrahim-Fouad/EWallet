@@ -97,7 +97,8 @@ internal sealed class TransferCommandHandler(
             sourceInfo.Value.Id,
             destInfo.Value.Id,
             request.Amount,
-            sourceInfo.Value.Currency), cancellationToken);
+            sourceInfo.Value.Currency,
+            request.Origin), cancellationToken);
 
         // 9 — Cache the pending response so subsequent retries with the same
         //     idempotency key don't go through validation again.

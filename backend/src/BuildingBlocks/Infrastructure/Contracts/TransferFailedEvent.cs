@@ -4,4 +4,5 @@ public sealed record TransferFailedEvent(
     Guid TransactionId,
     Guid SourceWalletId,
     string FailureReason,
-    DateTimeOffset FailedAt);
+    DateTimeOffset FailedAt,
+    string? Origin = null);

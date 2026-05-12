@@ -1,8 +1,12 @@
+import { HttpClient } from '@angular/common/http';
 import { Injectable, computed, effect, inject, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 
 import {
   NotificationDto,
+  PaymentRequestCreatedPayload,
+  PaymentRequestStatus,
+  PaymentRequestUpdatedPayload,
   TransactionCompletedPayload,
   TransactionDto,
   TransactionFailedPayload,
@@ -15,6 +19,7 @@ import { WalletService } from './wallet.service';
 import { TransactionService } from './transaction.service';
 import { SignalRService } from './signalr.service';
 import { NotificationService } from './notification.service';
+import { environment } from '../../../environments/environment';
 
 export interface User {
   id: string;
@@ -42,7 +47,17 @@ export interface Transaction {
   failReason?: string;
 }
 
-export type NotificationKind = 'received' | 'completed' | 'deposit' | 'failed';
+export type NotificationKind = 'received' | 'completed' | 'deposit' | 'failed' | 'payment-request';
+
+export interface PaymentRequestInfo {
+  id: string;
+  merchantName: string;
+  amount: number;
+  currency: string;
+  expiresAt: string;
+  status: PaymentRequestStatus;
+  actionTakenAt?: string;
+}
 
 export interface AppNotification {
   id: string;
@@ -51,6 +66,7 @@ export interface AppNotification {
   body: string;
   at: string;
   read: boolean;
+  paymentRequest?: PaymentRequestInfo;
 }
 
 export type ToastKind = 'received' | 'success' | 'error' | 'info';
@@ -115,6 +131,33 @@ export function fmtDateTime(iso: string): string {
   });
 }
 
+const STATUS_RANK: Record<PaymentRequestStatus, number> = {
+  Pending: 0,
+  Approved: 1,
+  Rejected: 2,
+  Expired: 2,
+  Completed: 3,
+  Failed: 3,
+};
+
+function mergePaymentRequestUpdate(
+  current: AppNotification,
+  incoming: { status: PaymentRequestStatus; actionTakenAt?: string },
+): AppNotification {
+  const currentStatus = current.paymentRequest?.status ?? 'Pending';
+  if (STATUS_RANK[incoming.status] < STATUS_RANK[currentStatus]) {
+    return current; // ignore stale push
+  }
+  return {
+    ...current,
+    paymentRequest: {
+      ...current.paymentRequest!,
+      status: incoming.status,
+      actionTakenAt: incoming.actionTakenAt ?? current.paymentRequest?.actionTakenAt,
+    },
+  };
+}
+
 type InternalWallet = Wallet & { id: string; created: string };
 
 @Injectable({ providedIn: 'root' })
@@ -124,6 +167,7 @@ export class AppStateService {
   private readonly txService = inject(TransactionService);
   private readonly signalr = inject(SignalRService);
   private readonly notificationService = inject(NotificationService);
+  private readonly http = inject(HttpClient);
 
   readonly loadState = signal<'idle' | 'loading' | 'loaded' | 'error'>('idle');
 
@@ -144,6 +188,9 @@ export class AppStateService {
   readonly notificationsHasMore = signal(false);
   readonly notificationsLoading = signal(false);
   private readonly notificationsPage = signal(0);
+
+  /** Notification IDs with in-flight approve/reject requests */
+  readonly inFlightNotifications = signal<Set<string>>(new Set());
 
   readonly unreadCount = computed(() => this.notifications().filter((n) => !n.read).length);
 
@@ -194,6 +241,10 @@ export class AppStateService {
     await this.initialize();
   }
 
+  async refreshNotifications(): Promise<void> {
+    await this.loadNotificationsPage(1, true);
+  }
+
   pushToast(toast: Omit<Toast, 'id'>): void {
     const id = 't_' + Math.random().toString(36).slice(2, 8);
     this.toasts.update((ts) => [...ts, { id, ...toast }]);
@@ -223,6 +274,52 @@ export class AppStateService {
   async loadMoreNotifications(): Promise<void> {
     if (!this.notificationsHasMore() || this.notificationsLoading()) return;
     await this.loadNotificationsPage(this.notificationsPage() + 1, false);
+  }
+
+  async approvePaymentRequest(notificationId: string, paymentRequestId: string): Promise<void> {
+    const snapshot = this.notifications();
+    this.setInFlight(notificationId, true);
+    this.applyLocalPaymentRequestUpdate(notificationId, {
+      status: 'Approved',
+      read: true,
+    });
+    try {
+      await firstValueFrom(
+        this.http.post(
+          `${environment.backendUrl}/api/v1/payment-requests/${paymentRequestId}/approve`,
+          {},
+        ),
+      );
+    } catch {
+      this.notifications.set(snapshot);
+      await this.refreshOnePaymentRequest(notificationId, paymentRequestId);
+      this.pushToast({ kind: 'error', title: 'This request can no longer be approved.' });
+    } finally {
+      this.setInFlight(notificationId, false);
+    }
+  }
+
+  async rejectPaymentRequest(notificationId: string, paymentRequestId: string): Promise<void> {
+    const snapshot = this.notifications();
+    this.setInFlight(notificationId, true);
+    this.applyLocalPaymentRequestUpdate(notificationId, {
+      status: 'Rejected',
+      read: true,
+    });
+    try {
+      await firstValueFrom(
+        this.http.post(
+          `${environment.backendUrl}/api/v1/payment-requests/${paymentRequestId}/reject`,
+          {},
+        ),
+      );
+    } catch {
+      this.notifications.set(snapshot);
+      await this.refreshOnePaymentRequest(notificationId, paymentRequestId);
+      this.pushToast({ kind: 'error', title: 'This request can no longer be rejected.' });
+    } finally {
+      this.setInFlight(notificationId, false);
+    }
   }
 
   async createWallet({
@@ -390,13 +487,17 @@ export class AppStateService {
       this.signalr.transferReceived$.subscribe((p) => this.handleTransferReceived(p));
       this.signalr.transactionCompleted$.subscribe((p) => this.handleTransactionCompleted(p));
       this.signalr.transactionFailed$.subscribe((p) => this.handleTransactionFailed(p));
+      this.signalr.paymentRequestCreated$.subscribe((p) => this.handlePaymentRequestCreated(p));
+      this.signalr.paymentRequestUpdated$.subscribe((p) => this.handlePaymentRequestUpdated(p));
+
+      // Re-fetch on reconnect to catch missed updates during offline window
+      this.signalr.reconnected$.subscribe(() => void this.refreshNotifications());
     } catch {
       // SignalR connection failure is non-fatal — app works without real-time
     }
   }
 
   private handleTransferReceived(payload: TransferReceivedPayload): void {
-    // Find the destination wallet by matching currency (best-effort; wallets are loaded)
     const wallet = this.wallets().find((w) => w.currency === payload.currency) ?? this.wallets()[0];
     if (!wallet) return;
 
@@ -452,7 +553,6 @@ export class AppStateService {
       ),
     );
 
-    // Refresh wallets to show the post-debit balance from the backend
     void firstValueFrom(this.walletService.getMyWallets()).then((dtos) => {
       this.wallets.update((ws) =>
         ws.map((w, i) => ({ ...w, balance: dtos[i]?.balance ?? w.balance })),
@@ -482,7 +582,6 @@ export class AppStateService {
   }
 
   private handleTransactionFailed(payload: TransactionFailedPayload): void {
-    // Find the failed transaction to restore the wallet balance
     const tx = this.transactions().find((t) => t.id === payload.transactionId);
 
     this.transactions.update((ts) =>
@@ -493,7 +592,6 @@ export class AppStateService {
       ),
     );
 
-    // Restore optimistically deducted balance
     if (tx) {
       this.wallets.update((ws) =>
         ws.map((w) => (w.id === tx.walletId ? { ...w, balance: w.balance + tx.amount } : w)),
@@ -522,7 +620,117 @@ export class AppStateService {
     });
   }
 
+  private handlePaymentRequestCreated(payload: PaymentRequestCreatedPayload): void {
+    this.notifications.update((ns) => {
+      if (ns.some((n) => n.id === payload.notificationId)) return ns;
+      const n: AppNotification = {
+        id: payload.notificationId,
+        kind: 'payment-request',
+        title: `${payload.merchantName} request paying ${fmtAmount(payload.amount, payload.currency)}`,
+        body: '',
+        at: payload.createdAt,
+        read: false,
+        paymentRequest: {
+          id: payload.paymentRequestId,
+          merchantName: payload.merchantName,
+          amount: payload.amount,
+          currency: payload.currency,
+          expiresAt: payload.expiresAt,
+          status: 'Pending',
+        },
+      };
+      return [n, ...ns];
+    });
+
+    this.pushToast({
+      kind: 'info',
+      title: `Payment request from ${payload.merchantName}`,
+      body: `${fmtAmount(payload.amount, payload.currency)} — open notifications to respond`,
+    });
+  }
+
+  private handlePaymentRequestUpdated(payload: PaymentRequestUpdatedPayload): void {
+    this.notifications.update((ns) =>
+      ns.map((n) => {
+        if (n.id !== payload.notificationId) return n;
+        return mergePaymentRequestUpdate(n, {
+          status: payload.actionStatus as PaymentRequestStatus,
+          actionTakenAt: payload.actionTakenAt,
+        });
+      }),
+    );
+  }
+
+  private applyLocalPaymentRequestUpdate(
+    notificationId: string,
+    patch: { status: PaymentRequestStatus; read?: boolean },
+  ): void {
+    this.notifications.update((ns) =>
+      ns.map((n) => {
+        if (n.id !== notificationId) return n;
+        return {
+          ...mergePaymentRequestUpdate(n, { status: patch.status }),
+          read: patch.read ?? n.read,
+        };
+      }),
+    );
+  }
+
+  private async refreshOnePaymentRequest(
+    notificationId: string,
+    paymentRequestId: string,
+  ): Promise<void> {
+    try {
+      const pr = await firstValueFrom(
+        this.http.get<{
+          status: PaymentRequestStatus;
+          resolvedAt: string | null;
+        }>(`/api/v1/payment-requests/${paymentRequestId}`),
+      );
+      this.notifications.update((ns) =>
+        ns.map((n) => {
+          if (n.id !== notificationId) return n;
+          return mergePaymentRequestUpdate(n, {
+            status: pr.status,
+            actionTakenAt: pr.resolvedAt ?? undefined,
+          });
+        }),
+      );
+    } catch {
+      // best-effort — stale optimistic state is better than crashing
+    }
+  }
+
+  private setInFlight(notificationId: string, inFlight: boolean): void {
+    this.inFlightNotifications.update((s) => {
+      const next = new Set(s);
+      if (inFlight) next.add(notificationId);
+      else next.delete(notificationId);
+      return next;
+    });
+  }
+
   private mapNotificationDto(dto: NotificationDto): AppNotification {
+    if (dto.type === 'PaymentRequestCreated') {
+      return {
+        id: dto.id,
+        kind: 'payment-request',
+        title: `${dto.merchantName} request paying ${fmtAmount(dto.amount!, dto.currency!)}`,
+        body: '',
+        at: dto.createdAt,
+        read: dto.isRead,
+        paymentRequest: {
+          id: dto.paymentRequestId!,
+          merchantName: dto.merchantName!,
+          amount: dto.amount!,
+          currency: dto.currency!,
+          expiresAt: dto.expiresAt!,
+          status: dto.actionStatus ?? 'Pending',
+          actionTakenAt: dto.actionTakenAt ?? undefined,
+        },
+      };
+    }
+
     switch (dto.type) {
       case 'TransferReceived':
         return {
@@ -572,7 +780,6 @@ export class AppStateService {
       const isDeposit = dto.description.toLowerCase().includes('deposit');
       const isInbound = dto.destinationPhoneNumber === wallet.phone;
       const type: TransactionType = isDeposit ? 'deposit' : isInbound ? 'in' : 'out';
-      // For inbound transactions use the sender's phone; for outbound use the recipient's phone
       const counterPhone = isDeposit
         ? 'Bank transfer'
         : isInbound

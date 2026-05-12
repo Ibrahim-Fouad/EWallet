@@ -7,7 +7,6 @@ using EWallet.Modules.Merchants.Domain.Entities;
 using EWallet.Modules.Merchants.Domain.Enums;
 using EWallet.Modules.Merchants.Domain.Errors;
 using EWallet.Modules.Merchants.Domain.Repositories;
-using EWallet.Modules.Notifications.Application.Abstractions;
 using Hangfire;
 
 namespace EWallet.Modules.Merchants.Application.Commands.CreatePaymentRequest;
@@ -16,7 +15,6 @@ internal sealed class CreatePaymentRequestCommandHandler(
     IMerchantRepository merchantRepository,
     IPaymentRequestRepository paymentRequestRepository,
     IWalletLookupService walletLookupService,
-    INotificationService notificationService,
     IMerchantUnitOfWork unitOfWork,
     IBackgroundJobClient backgroundJobClient)
     : ICommandHandler<CreatePaymentRequestCommand, CreatePaymentRequestResponse>
@@ -68,21 +66,14 @@ internal sealed class CreatePaymentRequestCommandHandler(
 
         paymentRequestRepository.Add(paymentRequest);
 
+        // Domain event PaymentRequestCreatedEvent is dispatched here;
+        // PaymentRequestCreatedNotificationHandler handles notification creation.
         await unitOfWork.DispatchDomainEventsAsync(cancellationToken);
         await unitOfWork.SaveChangesAsync(cancellationToken);
 
         backgroundJobClient.Schedule<IExpirePaymentRequestJob>(
             j => j.RunAsync(paymentRequest.Id),
             TimeSpan.FromMinutes(2));
-
-        await notificationService.SendPaymentRequestCreatedAsync(
-            customerWallet.OwnerId,
-            paymentRequest.Id,
-            merchant.BusinessName,
-            paymentRequest.Amount,
-            paymentRequest.Currency,
-            paymentRequest.ExpiresAt,
-            cancellationToken);
 
         return Result.Success(new CreatePaymentRequestResponse(
             paymentRequest.Id,

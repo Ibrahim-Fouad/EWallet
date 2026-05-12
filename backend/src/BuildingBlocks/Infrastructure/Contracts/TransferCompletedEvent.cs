@@ -6,4 +6,5 @@ public sealed record TransferCompletedEvent(
     Guid DestinationWalletId,
     decimal Amount,
     string Currency,
-    DateTimeOffset CompletedAt);
+    DateTimeOffset CompletedAt,
+    string? Origin = null);

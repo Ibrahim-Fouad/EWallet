@@ -1,7 +1,6 @@
 using EWallet.BuildingBlocks.Infrastructure.Contracts;
 using EWallet.Modules.Merchants.Domain.Enums;
 using EWallet.Modules.Merchants.Infrastructure.Persistence;
-using EWallet.Modules.Notifications.Application.Abstractions;
 using MassTransit;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -10,8 +9,6 @@ namespace EWallet.Modules.Merchants.Infrastructure.Consumers;
 
 public sealed class PaymentRequestTransferFailedConsumer(
     MerchantsDbContext dbContext,
-    IWalletLookupService walletLookupService,
-    INotificationService notificationService,
     ILogger<PaymentRequestTransferFailedConsumer> logger)
     : IConsumer<TransferFailedEvent>
 {
@@ -35,27 +32,11 @@ public sealed class PaymentRequestTransferFailedConsumer(
         }
 
         request.MarkFailed(msg.FailureReason);
+
+        // PaymentRequestResolvedEvent(Failed) is dispatched here;
+        // PaymentRequestResolvedNotificationHandler updates the notification row.
         await dbContext.DispatchDomainEventsAsync(ct);
         await dbContext.SaveChangesAsync(ct);
-
-        var customerWalletResult = await walletLookupService.GetByIdAsync(request.CustomerWalletId, ct);
-        if (customerWalletResult.IsSuccess)
-        {
-            try
-            {
-                await notificationService.SendPaymentRequestResolvedAsync(
-                    customerWalletResult.Value.OwnerId,
-                    request.Id,
-                    request.Status.ToString(),
-                    ct);
-            }
-            catch (Exception ex)
-            {
-                logger.LogWarning(ex,
-                    "Failed to send PaymentRequestResolved SignalR notification for request {RequestId}",
-                    request.Id);
-            }
-        }
 
         logger.LogInformation(
             "PaymentRequest {RequestId} marked Failed via transfer {TransactionId}: {Reason}",

@@ -20,7 +20,10 @@
       "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\([k for k in d.get\\('libraries',{}\\).keys\\(\\) if 'openiddict' in k.lower\\(\\)]\\)\")",
       "Bash(dotnet ef *)",
       "Bash(Get-ChildItem -Path \"D:\\\\Personal\\\\E.Wallet\\\\backend\\\\src\\\\BuildingBlocks\" -Recurse -Filter \"AggregateRoot.cs\")",
-      "Bash(Select-Object -ExpandProperty FullName)"
+      "Bash(Select-Object -ExpandProperty FullName)",
+      "Bash(Select-String -Pattern \"error|Error\")",
+      "Bash(Select-Object -First 30)",
+      "Bash(ls /mnt/d/Personal/E.Wallet/backend/src/Modules/Notifications/Notifications.Infrastructure/Migrations/)"
     ]
   }
 }

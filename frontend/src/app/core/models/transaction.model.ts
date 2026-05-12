@@ -65,6 +65,25 @@ export interface TransactionFailedPayload {
   failureReason: string;
 }
 
+export interface PaymentRequestCreatedPayload {
+  notificationId: string;
+  paymentRequestId: string;
+  merchantName: string;
+  amount: number;
+  currency: string;
+  expiresAt: string;
+  actionStatus: string;
+  createdAt: string;
+}
+
+export interface PaymentRequestUpdatedPayload {
+  notificationId: string;
+  paymentRequestId: string;
+  actionStatus: string;
+  actionTakenAt: string;
+  transactionId: string | null;
+}
+
 export interface PagedResult<T> {
   items: T[];
   page: number;
@@ -75,12 +94,21 @@ export interface PagedResult<T> {
 export type BackendNotificationType =
   | 'TransferReceived'
   | 'TransactionCompleted'
-  | 'TransactionFailed';
+  | 'TransactionFailed'
+  | 'PaymentRequestCreated';
+
+export type PaymentRequestStatus =
+  | 'Pending'
+  | 'Approved'
+  | 'Rejected'
+  | 'Expired'
+  | 'Completed'
+  | 'Failed';
 
 export interface NotificationDto {
   id: string;
   type: BackendNotificationType;
-  transactionId: string;
+  transactionId: string | null;
   amount: number | null;
   currency: string | null;
   senderPhoneNumber: string | null;
@@ -89,4 +117,9 @@ export interface NotificationDto {
   receivedAt: string | null;
   isRead: boolean;
   createdAt: string;
+  paymentRequestId: string | null;
+  merchantName: string | null;
+  actionStatus: PaymentRequestStatus | null;
+  actionTakenAt: string | null;
+  expiresAt: string | null;
 }

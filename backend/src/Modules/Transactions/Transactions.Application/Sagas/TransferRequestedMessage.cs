@@ -10,4 +10,5 @@ public sealed record TransferRequestedMessage(
     Guid SourceWalletId,
     Guid DestinationWalletId,
     decimal Amount,
-    string Currency);
+    string Currency,
+    string? Origin = null);

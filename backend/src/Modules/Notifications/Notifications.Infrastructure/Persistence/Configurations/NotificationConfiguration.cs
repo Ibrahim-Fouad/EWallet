@@ -13,7 +13,7 @@ internal sealed class NotificationConfiguration : IEntityTypeConfiguration<Notif
         builder.HasKey(n => n.Id);
 
         builder.Property(n => n.UserId).IsRequired();
-        builder.Property(n => n.TransactionId).IsRequired();
+        builder.Property(n => n.TransactionId);  // nullable
 
         builder.Property(n => n.Type)
             .IsRequired()
@@ -27,12 +27,26 @@ internal sealed class NotificationConfiguration : IEntityTypeConfiguration<Notif
             .HasMaxLength(10);
 
         builder.Property(n => n.SourceWalletId);
-
         builder.Property(n => n.CompletedAt);
         builder.Property(n => n.ReceivedAt);
 
         builder.Property(n => n.FailureReason)
             .HasMaxLength(500);
+
+        builder.Property(n => n.PaymentRequestId);
+
+        builder.Property(n => n.MerchantName)
+            .HasMaxLength(200);
+
+        builder.Property(n => n.ActionStatus)
+            .HasConversion<string>()
+            .HasMaxLength(20);
+
+        builder.Property(n => n.ActionTakenAt);
+        builder.Property(n => n.ExpiresAt);
+
+        builder.Property(n => n.RowVersion)
+            .IsRowVersion();
 
         builder.Property(n => n.IsRead)
             .IsRequired()
@@ -41,5 +55,8 @@ internal sealed class NotificationConfiguration : IEntityTypeConfiguration<Notif
         builder.Property(n => n.CreatedAt).IsRequired();
 
         builder.HasIndex(n => new { n.UserId, n.CreatedAt });
+
+        builder.HasIndex(n => new { n.UserId, n.PaymentRequestId })
+            .HasFilter("[PaymentRequestId] IS NOT NULL");
     }
 }

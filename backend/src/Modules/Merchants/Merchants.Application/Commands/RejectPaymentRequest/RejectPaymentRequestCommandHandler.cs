@@ -40,6 +40,8 @@ internal sealed class RejectPaymentRequestCommandHandler(
 
         paymentRequest.MarkRejected();
 
+        // PaymentRequestResolvedEvent(Rejected) is dispatched here;
+        // PaymentRequestResolvedNotificationHandler updates and marks read the notification.
         await unitOfWork.DispatchDomainEventsAsync(cancellationToken);
         await unitOfWork.SaveChangesAsync(cancellationToken);
 

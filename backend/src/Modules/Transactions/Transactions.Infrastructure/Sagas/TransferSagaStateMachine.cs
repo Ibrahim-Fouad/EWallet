@@ -63,6 +63,7 @@ public sealed class TransferSagaStateMachine : MassTransitStateMachine<TransferS
                     ctx.Saga.DestinationWalletId = ctx.Message.DestinationWalletId;
                     ctx.Saga.Amount              = ctx.Message.Amount;
                     ctx.Saga.Currency            = ctx.Message.Currency;
+                    ctx.Saga.Origin              = ctx.Message.Origin;
                 })
                 .Publish(ctx => new DebitWalletCommand(
                     ctx.Saga.CorrelationId,
@@ -88,7 +89,8 @@ public sealed class TransferSagaStateMachine : MassTransitStateMachine<TransferS
                     ctx.Saga.TransactionId,
                     ctx.Saga.SourceWalletId,
                     ctx.Saga.FailureReason ?? "Transfer failed",
-                    DateTimeOffset.UtcNow))
+                    DateTimeOffset.UtcNow,
+                    ctx.Saga.Origin))
                 .TransitionTo(Failed)
                 .Finalize());
 
@@ -102,7 +104,8 @@ public sealed class TransferSagaStateMachine : MassTransitStateMachine<TransferS
                     ctx.Saga.DestinationWalletId,
                     ctx.Saga.Amount,
                     ctx.Saga.Currency,
-                    DateTimeOffset.UtcNow))
+                    DateTimeOffset.UtcNow,
+                    ctx.Saga.Origin))
                 .TransitionTo(Completed)
                 .Finalize(),
 
@@ -123,7 +126,8 @@ public sealed class TransferSagaStateMachine : MassTransitStateMachine<TransferS
                     ctx.Saga.TransactionId,
                     ctx.Saga.SourceWalletId,
                     ctx.Saga.FailureReason ?? "Transfer failed",
-                    DateTimeOffset.UtcNow))
+                    DateTimeOffset.UtcNow,
+                    ctx.Saga.Origin))
                 .TransitionTo(Failed)
                 .Finalize());
 

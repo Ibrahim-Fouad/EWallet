@@ -29,6 +29,11 @@ internal sealed class NotificationRepository(NotificationsDbContext context) : I
     public async Task<Notification?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
         => await context.Notifications.FirstOrDefaultAsync(n => n.Id == id, cancellationToken);
 
+    public async Task<Notification?> GetByPaymentRequestIdAsync(
+        Guid paymentRequestId, CancellationToken cancellationToken = default)
+        => await context.Notifications
+            .FirstOrDefaultAsync(n => n.PaymentRequestId == paymentRequestId, cancellationToken);
+
     public async Task<int> GetUnreadCountAsync(Guid userId, CancellationToken cancellationToken = default)
         => await context.Notifications.CountAsync(n => n.UserId == userId && !n.IsRead, cancellationToken);
 

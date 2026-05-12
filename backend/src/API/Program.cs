@@ -93,6 +93,7 @@ app.MapTransactionEndpoints();
 app.MapNotificationsEndpoints();
 app.MapMerchantEndpoints();
 app.UseNotificationsModule();
+app.UseMerchantsModule();
 
 app.Run();
 

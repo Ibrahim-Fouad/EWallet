@@ -5,6 +5,8 @@ using EWallet.Modules.Merchants.Application.Abstractions;
 using EWallet.Modules.Merchants.Domain.Enums;
 using EWallet.Modules.Merchants.Domain.Errors;
 using EWallet.Modules.Merchants.Domain.Repositories;
+using EWallet.Modules.Notifications.Application.Abstractions;
+using EWallet.Modules.Notifications.Domain.Enums;
 using EWallet.Modules.Transactions.Application.Commands.Transfer;
 using MediatR;
 
@@ -14,6 +16,7 @@ internal sealed class ApprovePaymentRequestCommandHandler(
     IPaymentRequestRepository paymentRequestRepository,
     IMerchantRepository merchantRepository,
     IWalletLookupService walletLookupService,
+    INotificationService notificationService,
     IMerchantUnitOfWork unitOfWork,
     IMediator mediator)
     : ICommandHandler<ApprovePaymentRequestCommand, ApprovePaymentRequestResponse>
@@ -69,7 +72,8 @@ internal sealed class ApprovePaymentRequestCommandHandler(
             RequestingUserId: request.RequestingUserId,
             Notes: description,
             DestinationDisplayOverride: "Merchant Payment",
-            DescriptionOverride: description);
+            DescriptionOverride: description,
+            Origin: TransferOrigin.MerchantPayment);
 
         var transferResult = await mediator.Send(transferCommand, cancellationToken);
         if (transferResult.IsFailure)
@@ -79,6 +83,14 @@ internal sealed class ApprovePaymentRequestCommandHandler(
 
         await unitOfWork.DispatchDomainEventsAsync(cancellationToken);
         await unitOfWork.SaveChangesAsync(cancellationToken);
+
+        // Update notification to Approved and mark read (MarkApproved raises no domain event)
+        await notificationService.UpdatePaymentRequestStatusAsync(
+            paymentRequest.Id,
+            NotificationActionStatus.Approved,
+            transferResult.Value.TransactionId,
+            DateTimeOffset.UtcNow,
+            cancellationToken);
 
         return Result.Success(new ApprovePaymentRequestResponse(
             transferResult.Value.TransactionId,

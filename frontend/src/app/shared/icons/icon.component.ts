@@ -7,7 +7,8 @@ export type IconName =
   | 'mail' | 'lock' | 'phone' | 'trend-up' | 'trend-down'
   | 'filter' | 'calendar' | 'chevron-down' | 'chevron-right' | 'chevron-left'
   | 'more' | 'dot' | 'logout' | 'shield' | 'info' | 'alert' | 'copy'
-  | 'sparkle' | 'camera' | 'edit';
+  | 'sparkle' | 'camera' | 'edit'
+  | 'badge-check' | 'clock-x';
 
 @Component({
   selector: 'app-icon',
@@ -177,6 +178,16 @@ export type IconName =
         @case ('edit') {
           <path d="M12 20h9" />
           <path d="M16.5 3.5a2.1 2.1 0 1 1 3 3L7 19l-4 1 1-4z" />
+        }
+        @case ('badge-check') {
+          <path d="M3.85 8.62a4 4 0 0 1 4.78-4.77 4 4 0 0 1 6.74 0 4 4 0 0 1 4.78 4.78 4 4 0 0 1 0 6.74 4 4 0 0 1-4.77 4.78 4 4 0 0 1-6.75 0 4 4 0 0 1-4.78-4.77 4 4 0 0 1 0-6.76Z" />
+          <path d="m9 12 2 2 4-4" />
+        }
+        @case ('clock-x') {
+          <path d="M12 2a10 10 0 1 0 7.38 16.66" />
+          <path d="M12 6v6l3 3" />
+          <path d="m17 17 5 5" />
+          <path d="m22 17-5 5" />
         }
       }
     </svg>

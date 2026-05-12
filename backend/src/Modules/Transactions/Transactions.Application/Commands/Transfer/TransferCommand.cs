@@ -1,4 +1,5 @@
 using EWallet.BuildingBlocks.Application.Abstractions;
+using EWallet.BuildingBlocks.Common;
 
 namespace EWallet.Modules.Transactions.Application.Commands.Transfer;
 
@@ -10,7 +11,8 @@ public sealed record TransferCommand(
     Guid RequestingUserId,
     string? Notes = null,
     string? DestinationDisplayOverride = null,
-    string? DescriptionOverride = null) : ICommand<TransferResponse>;
+    string? DescriptionOverride = null,
+    string? Origin = null) : ICommand<TransferResponse>;
 
 public sealed record TransferResponse(
     Guid TransactionId,

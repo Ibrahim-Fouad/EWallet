@@ -48,7 +48,12 @@ internal sealed class GetNotificationHistoryQueryHandler(
                 n.CompletedAt,
                 n.ReceivedAt,
                 n.IsRead,
-                n.CreatedAt);
+                n.CreatedAt,
+                n.PaymentRequestId,
+                n.MerchantName,
+                n.ActionStatus?.ToString(),
+                n.ActionTakenAt,
+                n.ExpiresAt);
         }).ToList();
 
         return Result.Success(new PagedResult<NotificationDto>(dtos, paged.Page, paged.PageSize, paged.TotalCount));
