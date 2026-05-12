@@ -39,6 +39,8 @@
     <ProjectReference Include="..\Modules\Transactions\Transactions.API\EWallet.Modules.Transactions.API.csproj" />
     <ProjectReference Include="..\Modules\Notifications\Notifications.Infrastructure\EWallet.Modules.Notifications.Infrastructure.csproj" />
     <ProjectReference Include="..\Modules\Notifications\Notifications.API\EWallet.Modules.Notifications.API.csproj" />
+    <ProjectReference Include="..\Modules\Merchants\Merchants.Infrastructure\EWallet.Modules.Merchants.Infrastructure.csproj" />
+    <ProjectReference Include="..\Modules\Merchants\Merchants.API\EWallet.Modules.Merchants.API.csproj" />
   </ItemGroup>
 
   <ItemGroup>

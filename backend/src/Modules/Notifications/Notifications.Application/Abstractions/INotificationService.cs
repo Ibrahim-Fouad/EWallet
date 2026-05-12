@@ -24,4 +24,19 @@ public interface INotificationService
         Guid transactionId,
         string failureReason,
         CancellationToken cancellationToken = default);
+
+    Task SendPaymentRequestCreatedAsync(
+        Guid customerUserId,
+        Guid paymentRequestId,
+        string merchantBusinessName,
+        decimal amount,
+        string currency,
+        DateTimeOffset expiresAt,
+        CancellationToken cancellationToken = default);
+
+    Task SendPaymentRequestResolvedAsync(
+        Guid customerUserId,
+        Guid paymentRequestId,
+        string status,
+        CancellationToken cancellationToken = default);
 }

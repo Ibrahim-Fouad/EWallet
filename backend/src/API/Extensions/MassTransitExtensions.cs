@@ -1,5 +1,7 @@
 using EWallet.API.Infrastructure;
 using EWallet.BuildingBlocks.Application.Abstractions;
+using EWallet.Modules.Merchants.Infrastructure.Consumers;
+using EWallet.Modules.Merchants.Infrastructure.Persistence;
 using EWallet.Modules.Notifications.Infrastructure.Consumers;
 using EWallet.Modules.Transactions.Infrastructure.Consumers;
 using EWallet.Modules.Transactions.Infrastructure.Persistence;
@@ -46,6 +48,8 @@ internal static class MassTransitExtensions
             x.AddConsumer<TransferCompletedConsumer>();
             x.AddConsumer<TransferFailedConsumer>();
             x.AddConsumer<UserRegisteredConsumer>();
+            x.AddConsumer<PaymentRequestTransferCompletedConsumer>();
+            x.AddConsumer<PaymentRequestTransferFailedConsumer>();
 
             // ── EF Core outbox (non-consumer / HTTP-handler publish) ────────────
             // Registers the outbox delivery hosted service that polls
@@ -53,6 +57,12 @@ internal static class MassTransitExtensions
             // IPublishEndpoint in HTTP-handler scope uses this to stage messages
             // in-memory; SaveChangesAsync() commits them atomically with entity changes.
             x.AddEntityFrameworkOutbox<TransactionsDbContext>(o =>
+            {
+                o.UseSqlServer();
+                o.DuplicateDetectionWindow = TimeSpan.FromHours(25);
+            });
+
+            x.AddEntityFrameworkOutbox<MerchantsDbContext>(o =>
             {
                 o.UseSqlServer();
                 o.DuplicateDetectionWindow = TimeSpan.FromHours(25);

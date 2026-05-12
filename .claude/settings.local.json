@@ -18,7 +18,9 @@
       "Bash(dotnet add *)",
       "Bash(dotnet restore *)",
       "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\([k for k in d.get\\('libraries',{}\\).keys\\(\\) if 'openiddict' in k.lower\\(\\)]\\)\")",
-      "Bash(dotnet ef *)"
+      "Bash(dotnet ef *)",
+      "Bash(Get-ChildItem -Path \"D:\\\\Personal\\\\E.Wallet\\\\backend\\\\src\\\\BuildingBlocks\" -Recurse -Filter \"AggregateRoot.cs\")",
+      "Bash(Select-Object -ExpandProperty FullName)"
     ]
   }
 }

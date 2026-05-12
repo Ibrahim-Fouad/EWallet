@@ -84,4 +84,40 @@ internal sealed class NotificationService(
                 FailureReason = failureReason
             }, cancellationToken);
     }
+
+    public async Task SendPaymentRequestCreatedAsync(
+        Guid customerUserId,
+        Guid paymentRequestId,
+        string merchantBusinessName,
+        decimal amount,
+        string currency,
+        DateTimeOffset expiresAt,
+        CancellationToken cancellationToken = default)
+    {
+        await hubContext.Clients
+            .Group(customerUserId.ToString())
+            .SendAsync("PaymentRequestCreated", new
+            {
+                PaymentRequestId = paymentRequestId,
+                MerchantBusinessName = merchantBusinessName,
+                Amount = amount,
+                Currency = currency,
+                ExpiresAt = expiresAt
+            }, cancellationToken);
+    }
+
+    public async Task SendPaymentRequestResolvedAsync(
+        Guid customerUserId,
+        Guid paymentRequestId,
+        string status,
+        CancellationToken cancellationToken = default)
+    {
+        await hubContext.Clients
+            .Group(customerUserId.ToString())
+            .SendAsync("PaymentRequestResolved", new
+            {
+                PaymentRequestId = paymentRequestId,
+                Status = status
+            }, cancellationToken);
+    }
 }

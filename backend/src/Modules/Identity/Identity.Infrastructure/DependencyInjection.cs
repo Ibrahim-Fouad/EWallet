@@ -1,7 +1,9 @@
 using EWallet.Modules.Identity.Application;
+using EWallet.Modules.Identity.Application.Abstractions;
 using EWallet.Modules.Identity.Domain.Entities;
 using EWallet.Modules.Identity.Infrastructure.OpenIddict;
 using EWallet.Modules.Identity.Infrastructure.Persistence;
+using EWallet.Modules.Identity.Infrastructure.Services;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -73,8 +75,10 @@ public static class DependencyInjection
 
         services.AddOpenIddict()
             .AddCore(options =>
+            {
                 options.UseEntityFrameworkCore()
-                       .UseDbContext<IdentityDbContext>())
+                    .UseDbContext<IdentityDbContext>();
+            })
             .AddServer(options =>
             {
                 options.SetAuthorizationEndpointUris("/connect/authorize");
@@ -83,6 +87,7 @@ public static class DependencyInjection
                 options.AllowAuthorizationCodeFlow()
                        .RequireProofKeyForCodeExchange();
                 options.AllowRefreshTokenFlow();
+                options.AllowClientCredentialsFlow();
 
                 // Declare the scopes the server accepts — OpenIddict rejects any scope
                 // not listed here, even well-known OIDC scopes like profile/email.
@@ -101,8 +106,8 @@ public static class DependencyInjection
                 options.DisableAccessTokenEncryption();
 
                 options.UseAspNetCore()
-                    .EnableAuthorizationEndpointPassthrough();
-                //.EnableTokenEndpointPassthrough();
+                    .EnableAuthorizationEndpointPassthrough()
+                    .EnableTokenEndpointPassthrough();
             })
             .AddValidation(options =>
             {
@@ -111,6 +116,8 @@ public static class DependencyInjection
             });
 
         services.AddHostedService<OpenIddictWorker>();
+
+        services.AddScoped<IMerchantOAuthService, MerchantOAuthService>();
 
         return services;
     }

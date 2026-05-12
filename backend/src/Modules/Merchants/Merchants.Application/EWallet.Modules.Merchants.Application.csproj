@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <PackageReference Include="MediatR" />
+    <PackageReference Include="FluentValidation" />
+    <PackageReference Include="Hangfire.Core" />
+    <ProjectReference Include="../Merchants.Domain/EWallet.Modules.Merchants.Domain.csproj" />
+    <ProjectReference Include="../../Transactions/Transactions.Application/EWallet.Modules.Transactions.Application.csproj" />
+    <ProjectReference Include="../../Notifications/Notifications.Application/EWallet.Modules.Notifications.Application.csproj" />
+    <ProjectReference Include="../../Identity/Identity.Application/EWallet.Modules.Identity.Application.csproj" />
+    <ProjectReference Include="../../../BuildingBlocks/EWallet.BuildingBlocks.csproj" />
+  </ItemGroup>
+</Project>

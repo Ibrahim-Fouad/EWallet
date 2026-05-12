@@ -4,6 +4,8 @@ using EWallet.API.Middleware;
 using EWallet.BuildingBlocks.Application.Abstractions;
 using EWallet.Modules.Identity.API.Endpoints;
 using EWallet.Modules.Identity.Infrastructure;
+using EWallet.Modules.Merchants.API.Endpoints;
+using EWallet.Modules.Merchants.Infrastructure;
 using EWallet.Modules.Notifications.API.Endpoints;
 using EWallet.Modules.Notifications.Infrastructure;
 using EWallet.Modules.Transactions.API.Endpoints;
@@ -39,7 +41,11 @@ builder.Services.AddHostedService<DatabaseMigrationService>();
 // ─────────────────────────────────────────────────────────────────────────────
 
 builder.Services.AddAuthentication();
-builder.Services.AddAuthorization();
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy("Admin", p => p.RequireRole("Admin"));
+    options.AddPolicy("MerchantClient", p => p.RequireClaim("merchant_id"));
+});
 
 builder.Services.AddRazorPages(); // required by the Identity UI Razor Pages
 
@@ -50,6 +56,7 @@ builder.Services.AddIdentityModule(builder.Configuration);
 builder.Services.AddWalletsModule(builder.Configuration);
 builder.Services.AddTransactionsModule(builder.Configuration);
 builder.Services.AddNotificationsModule(builder.Configuration);
+builder.Services.AddMerchantsModule(builder.Configuration);
 
 builder.Services.AddMassTransitWithRabbitMq(builder.Configuration);
 
@@ -84,6 +91,7 @@ app.MapIdentityEndpoints();
 app.MapWalletEndpoints();
 app.MapTransactionEndpoints();
 app.MapNotificationsEndpoints();
+app.MapMerchantEndpoints();
 app.UseNotificationsModule();
 
 app.Run();

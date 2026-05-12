@@ -1,0 +1,8 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <PackageReference Include="MediatR" />
+    <ProjectReference Include="../Merchants.Application/EWallet.Modules.Merchants.Application.csproj" />
+    <ProjectReference Include="../../../BuildingBlocks/EWallet.BuildingBlocks.csproj" />
+  </ItemGroup>
+</Project>

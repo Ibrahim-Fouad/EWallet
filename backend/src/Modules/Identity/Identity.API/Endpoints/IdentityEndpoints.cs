@@ -23,14 +23,10 @@ public static class IdentityEndpoints
             var request = context.GetOpenIddictServerRequest()
                 ?? throw new InvalidOperationException("OpenIddict server request is unavailable.");
 
-            // Read the Identity application cookie set by SignInManager after login or registration.
-            // MUST use IdentityConstants.ApplicationScheme — the same scheme SignInManager writes to.
             var result = await context.AuthenticateAsync(IdentityConstants.ApplicationScheme);
 
             if (!result.Succeeded)
             {
-                // No valid cookie — challenge redirects to /Account/Login?ReturnUrl=<this URL>.
-                // After login (or registration), the user is sent back here with the cookie present.
                 return Results.Challenge(
                     new AuthenticationProperties
                     {
@@ -43,7 +39,6 @@ public static class IdentityEndpoints
                     [IdentityConstants.ApplicationScheme]);
             }
 
-            // Cookie is valid — resolve the full user from DB to access all profile properties.
             var cookiePrincipal = result.Principal!;
             var sub = cookiePrincipal.FindFirstValue(ClaimTypes.NameIdentifier)
                       ?? throw new InvalidOperationException("User principal has no NameIdentifier claim.");
@@ -52,8 +47,6 @@ public static class IdentityEndpoints
             var appUser = await userManager.FindByIdAsync(sub)
                           ?? throw new InvalidOperationException($"User '{sub}' not found.");
 
-            // Build the OpenIddict principal. nameType + roleType ensure OpenIddict maps
-            // standard claim type constants to the correct JWT claim names.
             var identity = new ClaimsIdentity(
                 authenticationType: OpenIddictServerAspNetCoreDefaults.AuthenticationScheme,
                 nameType: OpenIddictConstants.Claims.Name,
@@ -65,42 +58,98 @@ public static class IdentityEndpoints
             identity.AddClaim(new Claim(OpenIddictConstants.Claims.Name,          appUser.FullName));
             identity.AddClaim(new Claim(OpenIddictConstants.Claims.PhoneNumber,   appUser.PhoneNumber  ?? string.Empty));
 
-            var principal = new ClaimsPrincipal(identity);
+            var roles = await userManager.GetRolesAsync(appUser);
+            foreach (var role in roles)
+                identity.AddClaim(new Claim(OpenIddictConstants.Claims.Role, role));
 
-            // SetScopes MUST be called before destinations are evaluated — GetDestinations
-            // reads the granted scopes from the principal to decide which tokens each claim
-            // should appear in.
+            var principal = new ClaimsPrincipal(identity);
             principal.SetScopes(request.GetScopes());
 
             foreach (var claim in principal.Claims)
                 claim.SetDestinations(GetDestinations(claim, principal));
 
-            // Signing in with the OpenIddict server scheme causes OpenIddict to generate
-            // the authorization code and redirect the browser to redirect_uri?code=...
             return Results.SignIn(principal,
                 authenticationScheme: OpenIddictServerAspNetCoreDefaults.AuthenticationScheme);
         })
         .AllowAnonymous()
-        .ExcludeFromDescription(); // IdP endpoint — not an API operation; keep OpenAPI clean
+        .ExcludeFromDescription();
+
+        // Token endpoint — handles Authorization Code, Refresh Token, and Client Credentials flows
+        app.MapPost("/connect/token", async (HttpContext context) =>
+        {
+            var request = context.GetOpenIddictServerRequest()
+                ?? throw new InvalidOperationException("OpenIddict server request is unavailable.");
+
+            if (request.IsAuthorizationCodeGrantType() || request.IsRefreshTokenGrantType())
+            {
+                // Exchange the authorization code / refresh token for the stored principal.
+                var result = await context.AuthenticateAsync(OpenIddictServerAspNetCoreDefaults.AuthenticationScheme);
+                var principal = result.Principal
+                    ?? throw new InvalidOperationException("The principal could not be retrieved from the token.");
+
+                foreach (var claim in principal.Claims)
+                    claim.SetDestinations(GetDestinations(claim, principal));
+
+                return Results.SignIn(principal,
+                    authenticationScheme: OpenIddictServerAspNetCoreDefaults.AuthenticationScheme);
+            }
+
+            if (request.IsClientCredentialsGrantType())
+            {
+                var applicationManager = context.RequestServices
+                    .GetRequiredService<IOpenIddictApplicationManager>();
+
+                var application = await applicationManager.FindByClientIdAsync(request.ClientId!)
+                    ?? throw new InvalidOperationException($"Application '{request.ClientId}' not found.");
+
+                var identity = new ClaimsIdentity(
+                    authenticationType: OpenIddictServerAspNetCoreDefaults.AuthenticationScheme,
+                    nameType: OpenIddictConstants.Claims.Name,
+                    roleType: OpenIddictConstants.Claims.Role);
+
+                identity.AddClaim(new Claim(
+                    OpenIddictConstants.Claims.Subject, request.ClientId!));
+
+                // Embed the merchant_id — extract the GUID from "merchant-{guid}"
+                if (request.ClientId!.StartsWith("merchant-", StringComparison.OrdinalIgnoreCase))
+                {
+                    var merchantIdStr = request.ClientId["merchant-".Length..];
+                    identity.AddClaim(new Claim("merchant_id", merchantIdStr)
+                        .SetDestinations(OpenIddictConstants.Destinations.AccessToken));
+                }
+
+                var principal = new ClaimsPrincipal(identity);
+                principal.SetScopes(request.GetScopes());
+
+                foreach (var claim in principal.Claims)
+                {
+                    if (claim.Type == OpenIddictConstants.Claims.Subject)
+                        claim.SetDestinations(
+                            OpenIddictConstants.Destinations.AccessToken,
+                            OpenIddictConstants.Destinations.IdentityToken);
+                }
+
+                return Results.SignIn(principal,
+                    authenticationScheme: OpenIddictServerAspNetCoreDefaults.AuthenticationScheme);
+            }
+
+            return Results.BadRequest(new { error = "unsupported_grant_type" });
+        })
+        .AllowAnonymous()
+        .ExcludeFromDescription();
 
         return app;
     }
 
-    /// <summary>
-    /// Returns the token types a claim should be included in, based on which scopes were granted.
-    /// OpenIddict silently drops any claim whose destination set is empty.
-    /// </summary>
     private static IEnumerable<string> GetDestinations(Claim claim, ClaimsPrincipal principal)
     {
         switch (claim.Type)
         {
-            // sub is always present in both token types.
             case OpenIddictConstants.Claims.Subject:
                 yield return OpenIddictConstants.Destinations.AccessToken;
                 yield return OpenIddictConstants.Destinations.IdentityToken;
                 yield break;
 
-            // email + email_verified — only when the 'email' scope was granted.
             case OpenIddictConstants.Claims.Email:
             case OpenIddictConstants.Claims.EmailVerified:
                 if (principal.HasScope(OpenIddictConstants.Scopes.Email))
@@ -110,7 +159,6 @@ public static class IdentityEndpoints
                 }
                 yield break;
 
-            // name — only when the 'profile' scope was granted.
             case OpenIddictConstants.Claims.Name:
                 if (principal.HasScope(OpenIddictConstants.Scopes.Profile))
                 {
@@ -119,10 +167,14 @@ public static class IdentityEndpoints
                 }
                 yield break;
 
-            // phone_number — only when the custom 'wallet' scope was granted.
             case OpenIddictConstants.Claims.PhoneNumber:
                 if (principal.HasScope("wallet"))
                     yield return OpenIddictConstants.Destinations.AccessToken;
+                yield break;
+
+            case OpenIddictConstants.Claims.Role:
+                yield return OpenIddictConstants.Destinations.AccessToken;
+                yield return OpenIddictConstants.Destinations.IdentityToken;
                 yield break;
 
             default:

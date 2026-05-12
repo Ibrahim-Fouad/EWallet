@@ -26,6 +26,19 @@
   <Folder Name="/src/Modules/Identity/Identity.Infrastructure/">
     <Project Path="src/Modules/Identity/Identity.Infrastructure/EWallet.Modules.Identity.Infrastructure.csproj" />
   </Folder>
+  <Folder Name="/src/Modules/Merchants/" />
+  <Folder Name="/src/Modules/Merchants/Merchants.API/">
+    <Project Path="src/Modules/Merchants/Merchants.API/EWallet.Modules.Merchants.API.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Merchants/Merchants.Application/">
+    <Project Path="src/Modules/Merchants/Merchants.Application/EWallet.Modules.Merchants.Application.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Merchants/Merchants.Domain/">
+    <Project Path="src/Modules/Merchants/Merchants.Domain/EWallet.Modules.Merchants.Domain.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Merchants/Merchants.Infrastructure/">
+    <Project Path="src/Modules/Merchants/Merchants.Infrastructure/EWallet.Modules.Merchants.Infrastructure.csproj" />
+  </Folder>
   <Folder Name="/src/Modules/Notifications/" />
   <Folder Name="/src/Modules/Notifications/Notifications.API/">
     <Project Path="src/Modules/Notifications/Notifications.API/EWallet.Modules.Notifications.API.csproj" />

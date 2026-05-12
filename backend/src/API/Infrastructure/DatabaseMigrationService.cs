@@ -1,4 +1,5 @@
 using EWallet.Modules.Identity.Infrastructure.Persistence;
+using EWallet.Modules.Merchants.Infrastructure.Persistence;
 using EWallet.Modules.Notifications.Infrastructure.Persistence;
 using EWallet.Modules.Transactions.Infrastructure.Persistence;
 using EWallet.Modules.Wallets.Infrastructure.Persistence;
@@ -43,6 +44,7 @@ internal sealed class DatabaseMigrationService(
             await MigrateAsync<WalletsDbContext>(sp, "wallets", cancellationToken);
             await MigrateAsync<TransactionsDbContext>(sp, "transactions", cancellationToken);
             await MigrateAsync<NotificationsDbContext>(sp, "notifications", cancellationToken);
+            await MigrateAsync<MerchantsDbContext>(sp, "merchants", cancellationToken);
         }
         catch (Exception ex)
         {
